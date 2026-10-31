@@ -68,6 +68,7 @@ class GalileoControllerApp:
         self.window.btn_apply_camera.clicked.connect(self._apply_camera_selection)
 
         # 5. UI Button Actions
+        self.window.btn_fullscreen.clicked.connect(self.window.toggle_fullscreen)
         self.window.btn_update.clicked.connect(lambda: self.updater.check_for_updates(is_silent=False))
         self.window.btn_refresh_ports.clicked.connect(self._populate_serial_ports)
         self.window.btn_connect_serial.clicked.connect(self._toggle_serial_connection)

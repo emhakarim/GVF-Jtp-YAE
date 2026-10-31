@@ -177,3 +177,4 @@ class AppUpdater(QObject):
             if self.parent and hasattr(self.parent, "append_log"):
                 self.parent.append_log(f"[UPDATE ERROR] {message}")
             QMessageBox.warning(self.parent, "Gagal Update", message)
+

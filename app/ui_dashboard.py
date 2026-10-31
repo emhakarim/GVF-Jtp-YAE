@@ -449,6 +449,7 @@ class DashboardWindow(QMainWindow):
         self.btn_fullscreen = QPushButton("⛶ Layar Penuh (F11)")
         self.btn_fullscreen.setObjectName("btnFullscreen")
         self.btn_fullscreen.setToolTip("Alihkan Tampilan Layar Penuh (F11 / Esc)")
+        self.btn_fullscreen.clicked.connect(self.toggle_fullscreen)
         tb_layout.addWidget(self.btn_fullscreen)
 
         root_layout.addWidget(tb)
