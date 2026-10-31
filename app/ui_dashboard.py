@@ -84,6 +84,19 @@ QWidget {
     background-color: #1e293b;
     border-color: #475569;
 }
+#btnUpdate {
+    background-color: #f8fafc;
+    color: #0284c7;
+    font-weight: 700;
+    font-size: 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 5px 12px;
+}
+#btnUpdate:hover {
+    background-color: #e0f2fe;
+    border-color: #7dd3fc;
+}
 
 /* Badges Header */
 #badgeStatus {
@@ -425,6 +438,12 @@ class DashboardWindow(QMainWindow):
         tb_layout.addWidget(self.btn_connect_wifi)
 
         tb_layout.addStretch()
+
+        # Tombol Update Sistem (GitHub)
+        self.btn_update = QPushButton("🔄 Update")
+        self.btn_update.setObjectName("btnUpdate")
+        self.btn_update.setToolTip("Periksa dan Sinkronkan Pembaruan dari GitHub")
+        tb_layout.addWidget(self.btn_update)
 
         # Tombol Layar Penuh (Fullscreen Toggle)
         self.btn_fullscreen = QPushButton("⛶ Layar Penuh (F11)")

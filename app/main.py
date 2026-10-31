@@ -15,6 +15,7 @@ from camera_worker import CameraWorker
 from scene_detector import SceneDetector
 from comm_manager import CommManager
 from physics_engine import PhysicsEngine
+from updater import AppUpdater
 
 class GalileoControllerApp:
     def __init__(self):
@@ -36,9 +37,15 @@ class GalileoControllerApp:
         self.stopwatch_timer = QTimer(self.window)
         self.stopwatch_timer.timeout.connect(self._update_live_stopwatch)
 
+        # Pengelola Pembaruan Sistem (Git Auto-Updater)
+        self.updater = AppUpdater(parent_window=self.window, on_clean_teardown=self._clean_teardown)
+
         self._connect_signals()
         self._populate_cameras()
         self._populate_serial_ports()
+
+        # Silent check update 4 detik setelah boot tanpa mengganggu user
+        QTimer.singleShot(4000, lambda: self.updater.check_for_updates(is_silent=True))
 
     def _connect_signals(self):
         # 1. Camera Signals
@@ -61,6 +68,7 @@ class GalileoControllerApp:
         self.window.btn_apply_camera.clicked.connect(self._apply_camera_selection)
 
         # 5. UI Button Actions
+        self.window.btn_update.clicked.connect(lambda: self.updater.check_for_updates(is_silent=False))
         self.window.btn_refresh_ports.clicked.connect(self._populate_serial_ports)
         self.window.btn_connect_serial.clicked.connect(self._toggle_serial_connection)
         self.window.btn_connect_wifi.clicked.connect(self._toggle_wifi_connection)
@@ -76,6 +84,17 @@ class GalileoControllerApp:
         self.window.btn_step_prev.clicked.connect(self._step_prev_replay)
         self.window.btn_step_next.clicked.connect(self._step_next_replay)
         self.window.btn_live_feed.clicked.connect(self._resume_live_feed)
+
+    def _clean_teardown(self):
+        """Melepas resource hardware camera & serial com sebelum restart sistem."""
+        try:
+            self.camera.stop()
+        except Exception:
+            pass
+        try:
+            self.comm.disconnect()
+        except Exception:
+            pass
 
 
     def _populate_cameras(self):
