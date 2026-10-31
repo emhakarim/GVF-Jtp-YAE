@@ -36,30 +36,41 @@ QWidget {
     color: #0f172a;
 }
 
-/* Toolbar Bar Atas */
-#topToolbar {
+/* Header Terpadu Ramping */
+#topUnifiedBar {
     background-color: #ffffff;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    border-radius: 10px;
+    padding: 6px 14px;
 }
-#topToolbar QLabel {
+#topUnifiedBar QLabel {
+    color: #334155;
+}
+
+/* Strip Kontrol Hardware di Tengah */
+#controlStrip {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 3px 10px;
+}
+#controlStrip QLabel {
     font-weight: 700;
     font-size: 11px;
     color: #475569;
-    border: none;
     background: transparent;
+    border: none;
 }
-#topToolbar QComboBox, #topToolbar QLineEdit {
-    background-color: #f8fafc;
+#controlStrip QComboBox {
+    background-color: #ffffff;
     border: 1px solid #94a3b8;
     border-radius: 5px;
-    padding: 4px 6px;
+    padding: 4px 8px;
     font-size: 11px;
     color: #0f172a;
-    font-family: 'Consolas', 'JetBrains Mono', monospace;
     font-weight: 600;
 }
-#topToolbar QPushButton {
+#controlStrip QPushButton {
     background-color: #0284c7;
     color: #ffffff;
     font-weight: 700;
@@ -68,8 +79,21 @@ QWidget {
     border-radius: 5px;
     padding: 5px 12px;
 }
-#topToolbar QPushButton:hover {
+#controlStrip QPushButton:hover {
     background-color: #0369a1;
+}
+#btnUpdate {
+    background-color: #ffffff;
+    color: #0284c7;
+    font-weight: 700;
+    font-size: 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+#btnUpdate:hover {
+    background-color: #e0f2fe;
+    border-color: #7dd3fc;
 }
 #btnFullscreen {
     background-color: #0f172a;
@@ -78,44 +102,31 @@ QWidget {
     font-size: 11px;
     border: 1px solid #334155;
     border-radius: 5px;
-    padding: 5px 12px;
+    padding: 5px 14px;
 }
 #btnFullscreen:hover {
     background-color: #1e293b;
     border-color: #475569;
 }
-#btnUpdate {
-    background-color: #f8fafc;
-    color: #0284c7;
-    font-weight: 700;
-    font-size: 11px;
-    border: 1px solid #cbd5e1;
-    border-radius: 5px;
-    padding: 5px 12px;
-}
-#btnUpdate:hover {
-    background-color: #e0f2fe;
-    border-color: #7dd3fc;
-}
 
-/* Badges Header */
-#badgeStatus {
+/* Badges Status Kompak */
+#badgeStatus, #pillStatusStandby {
     background-color: #e0f2fe;
     color: #0369a1;
     font-weight: 800;
-    font-size: 11px;
+    font-size: 10px;
     padding: 4px 10px;
-    border-radius: 6px;
+    border-radius: 14px;
     font-family: 'Consolas', 'JetBrains Mono', monospace;
     border: 1px solid #bae6fd;
 }
-#badgeFps {
+#badgeFps, #pillStatusFps {
     background-color: #dcfce7;
     color: #15803d;
     font-weight: 800;
-    font-size: 11px;
+    font-size: 10px;
     padding: 4px 10px;
-    border-radius: 6px;
+    border-radius: 14px;
     font-family: 'Consolas', 'JetBrains Mono', monospace;
     border: 1px solid #bbf7d0;
 }
@@ -331,11 +342,14 @@ class DashboardWindow(QMainWindow):
         root_layout.setContentsMargins(12, 8, 12, 8)
         root_layout.setSpacing(6)
 
-        # 1. HEADER BAR UTAMA (Full Width)
-        header_box = QHBoxLayout()
-        header_box.setSpacing(12)
+        # 1. HEADER TERPADU KOMPAK (ZERO EXCESS WHITE SPACE)
+        header_card = QFrame()
+        header_card.setObjectName("topUnifiedBar")
+        h_layout = QHBoxLayout(header_card)
+        h_layout.setContentsMargins(10, 6, 12, 6)
+        h_layout.setSpacing(14)
 
-        # Logo Jawa Timur Park Group
+        # Kiri: Logo Jawa Timur Park Group
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.assets_dir = os.path.join(base_dir, "assets")
 
@@ -343,118 +357,111 @@ class DashboardWindow(QMainWindow):
         if os.path.exists(logo_jtp_path):
             lbl_jtp = QLabel()
             pix_jtp = QPixmap(logo_jtp_path)
-            lbl_jtp.setPixmap(pix_jtp.scaledToHeight(38, Qt.SmoothTransformation))
-            header_box.addWidget(lbl_jtp)
+            lbl_jtp.setPixmap(pix_jtp.scaledToHeight(52, Qt.SmoothTransformation))
+            h_layout.addWidget(lbl_jtp, alignment=Qt.AlignVCenter)
 
-        # Pemisah Vertikal Halus
-        d_head = QFrame()
-        d_head.setFrameShape(QFrame.VLine)
-        d_head.setStyleSheet("color: #cbd5e1; max-height: 36px; margin: 0 4px;")
-        header_box.addWidget(d_head)
+        # Divider Kiri
+        d_left = QFrame()
+        d_left.setFrameShape(QFrame.VLine)
+        d_left.setStyleSheet("color: #cbd5e1; max-height: 52px;")
+        h_layout.addWidget(d_left, alignment=Qt.AlignVCenter)
 
-        title_col = QVBoxLayout()
+        # TENGAH: Judul, Badges & Kontrol Terkumpul Terpusat
+        center_col = QVBoxLayout()
+        center_col.setSpacing(4)
+        center_col.setAlignment(Qt.AlignCenter)
+
+        # Baris 1 Tengah: Judul & Badges
+        c_top = QHBoxLayout()
+        c_top.setSpacing(12)
+        c_top.setAlignment(Qt.AlignCenter)
+
+        title_inner = QVBoxLayout()
+        title_inner.setSpacing(1)
         t1 = QLabel("GALILEO VACUUM FALL EXPERIMENT")
-        t1.setStyleSheet("font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;")
-        t2 = QLabel("Wahana Eksperimen Fisika & Kinematika Vakum (100 FPS) • Yotta Aksara Energi")
+        t1.setStyleSheet("font-size: 17px; font-weight: 800; color: #0f172a; letter-spacing: -0.01em;")
+        t2 = QLabel("Wahana Fisika & Kinematika Vakum (100 FPS) • Yotta Aksara Energi")
         t2.setStyleSheet("font-size: 11px; font-weight: 600; color: #475569;")
-        title_col.addWidget(t1)
-        title_col.addWidget(t2)
-        header_box.addLayout(title_col)
+        title_inner.addWidget(t1)
+        title_inner.addWidget(t2)
+        c_top.addLayout(title_inner)
 
-        # Status Telemetri Sistem
-        header_box.addSpacing(16)
-        self.badge_status = QLabel("ESP32: STANDBY")
-        self.badge_status.setObjectName("badgeStatus")
-        header_box.addWidget(self.badge_status)
+        c_top.addSpacing(10)
+        self.badge_status = QLabel("● ESP32: STANDBY")
+        self.badge_status.setObjectName("pillStatusStandby")
+        c_top.addWidget(self.badge_status)
 
-        self.fps_badge = QLabel("CAMERA: 100 FPS")
-        self.fps_badge.setObjectName("badgeFps")
-        header_box.addWidget(self.fps_badge)
+        self.fps_badge = QLabel("● CAM: 100 FPS")
+        self.fps_badge.setObjectName("pillStatusFps")
+        c_top.addWidget(self.fps_badge)
 
-        header_box.addStretch()
+        center_col.addLayout(c_top)
 
-        # Logo Museum Mega Science Center dan Budaya (Kanan Header)
-        logo_sc_clean = os.path.join(self.assets_dir, "logo_science_center_clean.png")
-        if os.path.exists(logo_sc_clean):
-            lbl_sc = QLabel()
-            pix_sc = QPixmap(logo_sc_clean)
-            lbl_sc.setPixmap(pix_sc.scaledToHeight(46, Qt.SmoothTransformation))
-            header_box.addWidget(lbl_sc)
+        # Baris 2 Tengah: Strip Kontrol Hardware Ringkas
+        c_bot = QFrame()
+        c_bot.setObjectName("controlStrip")
+        c_bot_l = QHBoxLayout(c_bot)
+        c_bot_l.setContentsMargins(8, 3, 8, 3)
+        c_bot_l.setSpacing(8)
+        c_bot_l.setAlignment(Qt.AlignCenter)
 
-        root_layout.addLayout(header_box)
-
-        # 2. TOP TOOLBAR (Koneksi, Kamera & Kontrol Layar Penuh)
-        tb = QFrame()
-        tb.setObjectName("topToolbar")
-        tb_layout = QHBoxLayout(tb)
-        tb_layout.setContentsMargins(10, 5, 10, 5)
-        tb_layout.setSpacing(8)
-
-        # Kamera
-        tb_layout.addWidget(QLabel("Input Video:"))
+        c_bot_l.addWidget(QLabel("📹 Kamera:"))
         self.combo_cameras = QComboBox()
-        self.combo_cameras.setMinimumWidth(190)
-        tb_layout.addWidget(self.combo_cameras)
+        self.combo_cameras.setMinimumWidth(210)
+        c_bot_l.addWidget(self.combo_cameras)
 
         self.btn_refresh_cameras = QPushButton("Scan")
-        tb_layout.addWidget(self.btn_refresh_cameras)
+        c_bot_l.addWidget(self.btn_refresh_cameras)
 
-        self.btn_apply_camera = QPushButton("Terapkan")
-        tb_layout.addWidget(self.btn_apply_camera)
+        d_mid = QFrame()
+        d_mid.setFrameShape(QFrame.VLine)
+        d_mid.setStyleSheet("color: #cbd5e1; max-height: 18px;")
+        c_bot_l.addWidget(d_mid)
 
-        # Divider
-        d1 = QFrame()
-        d1.setFrameShape(QFrame.VLine)
-        d1.setStyleSheet("color: #cbd5e1; max-height: 20px;")
-        tb_layout.addWidget(d1)
-
-        # ESP32 Serial
-        tb_layout.addWidget(QLabel("ESP32 UART:"))
+        c_bot_l.addWidget(QLabel("⚡ ESP32:"))
         self.combo_ports = QComboBox()
-        self.combo_ports.setMinimumWidth(95)
-        tb_layout.addWidget(self.combo_ports)
-
-        self.btn_refresh_ports = QPushButton("Scan")
-        tb_layout.addWidget(self.btn_refresh_ports)
+        self.combo_ports.setMinimumWidth(160)
+        c_bot_l.addWidget(self.combo_ports)
 
         self.btn_connect_serial = QPushButton("Hubungkan")
-        tb_layout.addWidget(self.btn_connect_serial)
+        c_bot_l.addWidget(self.btn_connect_serial)
 
-        # Divider
-        d2 = QFrame()
-        d2.setFrameShape(QFrame.VLine)
-        d2.setStyleSheet("color: #cbd5e1; max-height: 20px;")
-        tb_layout.addWidget(d2)
+        d_mid2 = QFrame()
+        d_mid2.setFrameShape(QFrame.VLine)
+        d_mid2.setStyleSheet("color: #cbd5e1; max-height: 18px;")
+        c_bot_l.addWidget(d_mid2)
 
-        # Wi-Fi
-        tb_layout.addWidget(QLabel("Wi-Fi IP:"))
-        self.txt_esp_ip = QLineEdit("192.168.4.1")
-        self.txt_esp_ip.setMinimumWidth(115)
-        self.txt_esp_ip.setMaximumWidth(130)
-        self.txt_esp_ip.setAlignment(Qt.AlignCenter)
-        tb_layout.addWidget(self.txt_esp_ip)
-
-        self.btn_connect_wifi = QPushButton("Connect Wi-Fi")
-        tb_layout.addWidget(self.btn_connect_wifi)
-
-        tb_layout.addStretch()
-
-        # Tombol Update Sistem (GitHub)
         self.btn_update = QPushButton("🔄 Update")
         self.btn_update.setObjectName("btnUpdate")
         self.btn_update.setToolTip("Periksa dan Sinkronkan Pembaruan dari GitHub")
-        tb_layout.addWidget(self.btn_update)
+        c_bot_l.addWidget(self.btn_update)
 
-        # Tombol Layar Penuh (Fullscreen Toggle)
         self.btn_fullscreen = QPushButton("⛶ Layar Penuh (F11)")
         self.btn_fullscreen.setObjectName("btnFullscreen")
         self.btn_fullscreen.setToolTip("Alihkan Tampilan Layar Penuh (F11 / Esc)")
         self.btn_fullscreen.clicked.connect(self.toggle_fullscreen)
-        tb_layout.addWidget(self.btn_fullscreen)
+        c_bot_l.addWidget(self.btn_fullscreen)
 
-        root_layout.addWidget(tb)
+        center_col.addWidget(c_bot)
+        h_layout.addLayout(center_col, stretch=1)
 
-        # 3. SPLITTER AREA UTAMA (KIRI & KANAN)
+        # Divider Kanan
+        d_right = QFrame()
+        d_right.setFrameShape(QFrame.VLine)
+        d_right.setStyleSheet("color: #cbd5e1; max-height: 52px;")
+        h_layout.addWidget(d_right, alignment=Qt.AlignVCenter)
+
+        # Kanan: Logo Museum Mega Science Center (Besar: 74px)
+        logo_sc_clean = os.path.join(self.assets_dir, "logo_science_center_clean.png")
+        if os.path.exists(logo_sc_clean):
+            lbl_sc = QLabel()
+            pix_sc = QPixmap(logo_sc_clean)
+            lbl_sc.setPixmap(pix_sc.scaledToHeight(74, Qt.SmoothTransformation))
+            h_layout.addWidget(lbl_sc, alignment=Qt.AlignVCenter)
+
+        root_layout.addWidget(header_card)
+
+        # 2. SPLITTER AREA UTAMA (KIRI & KANAN)
         splitter = QSplitter(Qt.Horizontal)
 
         # ================= KIRI: VIDEO & DOCK KONTROL =================
@@ -467,7 +474,7 @@ class DashboardWindow(QMainWindow):
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setStyleSheet("background-color: #090d16; border-radius: 8px; border: 1px solid #1e293b;")
-        self.video_label.setMinimumSize(640, 430)
+        self.video_label.setMinimumSize(700, 560)
         left_layout.addWidget(self.video_label, stretch=5)
 
         # Compact Dock Bawah (Slow-Mo & Sensitivitas ROI Berdampingan)

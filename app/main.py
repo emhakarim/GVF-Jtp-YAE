@@ -65,14 +65,12 @@ class GalileoControllerApp:
 
         # 4. Camera Switch Actions
         self.window.btn_refresh_cameras.clicked.connect(self._populate_cameras)
-        self.window.btn_apply_camera.clicked.connect(self._apply_camera_selection)
+        self.window.combo_cameras.currentIndexChanged.connect(self._apply_camera_selection)
 
         # 5. UI Button Actions
         self.window.btn_fullscreen.clicked.connect(self.window.toggle_fullscreen)
         self.window.btn_update.clicked.connect(lambda: self.updater.check_for_updates(is_silent=False))
-        self.window.btn_refresh_ports.clicked.connect(self._populate_serial_ports)
-        self.window.btn_connect_serial.clicked.connect(self._toggle_serial_connection)
-        self.window.btn_connect_wifi.clicked.connect(self._toggle_wifi_connection)
+        self.window.btn_connect_serial.clicked.connect(self._toggle_esp_connection)
 
         self.window.btn_drop_feather.clicked.connect(lambda: self._execute_drop("FEATHER"))
         self.window.btn_drop_ball.clicked.connect(lambda: self._execute_drop("BALL"))
@@ -117,28 +115,28 @@ class GalileoControllerApp:
         self.window.combo_ports.clear()
         if ports:
             self.window.combo_ports.addItems(ports)
-            self.window.append_log(f"[PORT] Ditemukan {len(ports)} port serial.")
+            self.window.append_log(f"[PORT] Ditemukan {len(ports)} port serial USB.")
         else:
             self.window.combo_ports.addItem("None")
+        # Opsi Wi-Fi AP terintegrasi
+        self.window.combo_ports.addItem("Wi-Fi AP: 192.168.4.1")
 
-    def _toggle_serial_connection(self):
-        if not self.comm.is_serial_connected:
-            selected_port = self.window.combo_ports.currentText()
-            if selected_port and selected_port != "None":
-                if self.comm.connect_serial(selected_port, 115200):
-                    self.window.btn_connect_serial.setText("Putus Serial")
-        else:
+    def _toggle_esp_connection(self):
+        if self.comm.is_serial_connected or self.comm.is_wifi_connected:
             self.comm.disconnect_serial()
-            self.window.btn_connect_serial.setText("Hubungkan Serial")
-
-    def _toggle_wifi_connection(self):
-        if not self.comm.is_wifi_connected:
-            ip = self.window.txt_esp_ip.text().strip()
-            self.comm.connect_wifi(ip)
-            self.window.btn_connect_wifi.setText("Putus Wi-Fi")
-        else:
             self.comm.disconnect_wifi()
-            self.window.btn_connect_wifi.setText("Hubungkan Wi-Fi")
+            self.window.btn_connect_serial.setText("Hubungkan")
+            self.window.btn_connect_serial.setStyleSheet("")
+            self.window.append_log("[ESP32] Koneksi terputus.")
+        else:
+            selected = self.window.combo_ports.currentText()
+            if "Wi-Fi" in selected:
+                self.window.append_log("[ESP32] Menghubungkan via Wi-Fi WebSocket (192.168.4.1)...")
+                self.comm.connect_wifi("192.168.4.1")
+            elif selected and selected != "None":
+                port = selected.split()[0].strip()
+                self.window.append_log(f"[ESP32] Menghubungkan via Serial USB ({port})...")
+                self.comm.connect_serial(port, 115200)
 
     def _update_live_stopwatch(self):
         elapsed_ms = (time.perf_counter() - self.current_t_trigger) * 1000.0
@@ -194,7 +192,7 @@ class GalileoControllerApp:
 
     @Slot(float)
     def _on_fps_updated(self, fps: float):
-        self.window.fps_badge.setText(f"CAMERA: {fps:.1f} FPS")
+        self.window.fps_badge.setText(f"● CAM: {fps:.1f} FPS")
 
     @Slot(bool, str)
     def _on_camera_status(self, is_hw: bool, msg: str):
@@ -202,13 +200,16 @@ class GalileoControllerApp:
 
     @Slot(str, bool, str)
     def _on_comm_status(self, proto: str, connected: bool, msg: str):
-        status_txt = f"{proto}: {'TERHUBUNG' if connected else 'STANDBY'}"
+        status_txt = f"● ESP32: {'OK' if connected else 'STANDBY'}"
         self.window.badge_status.setText(status_txt)
-        self.window.badge_status.setStyleSheet(
-            "background-color: #dcfce7; color: #166534; font-weight: 700; padding: 6px 14px; border-radius: 6px; font-size: 11px; font-family: monospace;"
-            if connected else
-            "background-color: #e0f2fe; color: #0369a1; font-weight: 700; padding: 6px 14px; border-radius: 6px; font-size: 11px; font-family: monospace;"
-        )
+        if connected:
+            self.window.badge_status.setStyleSheet("background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; font-weight: 800; font-size: 10px; padding: 4px 10px; border-radius: 14px; font-family: monospace;")
+            self.window.btn_connect_serial.setText("Putus")
+            self.window.btn_connect_serial.setStyleSheet("background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; font-weight: 700;")
+        else:
+            self.window.badge_status.setStyleSheet("background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 800; font-size: 10px; padding: 4px 10px; border-radius: 14px; font-family: monospace;")
+            self.window.btn_connect_serial.setText("Hubungkan")
+            self.window.btn_connect_serial.setStyleSheet("")
 
     @Slot(str, int, float)
     def _on_release_confirmed(self, target: str, t_esp_micros: int, pc_time: float):
