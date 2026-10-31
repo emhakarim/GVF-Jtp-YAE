@@ -345,8 +345,9 @@ class DashboardWindow(QMainWindow):
         # 1. HEADER BRANDING BERSIH (BEBAS KONTROL TOMBOL)
         header_card = QFrame()
         header_card.setObjectName("topHeaderBar")
+        header_card.setFixedHeight(62)
         h_layout = QHBoxLayout(header_card)
-        h_layout.setContentsMargins(12, 4, 12, 4)
+        h_layout.setContentsMargins(12, 2, 12, 2)
         h_layout.setSpacing(12)
 
         # Kiri: Logo Jawa Timur Park Group
@@ -357,13 +358,13 @@ class DashboardWindow(QMainWindow):
         if os.path.exists(logo_jtp_path):
             lbl_jtp = QLabel()
             pix_jtp = QPixmap(logo_jtp_path)
-            lbl_jtp.setPixmap(pix_jtp.scaledToHeight(44, Qt.SmoothTransformation))
+            lbl_jtp.setPixmap(pix_jtp.scaledToHeight(40, Qt.SmoothTransformation))
             h_layout.addWidget(lbl_jtp, alignment=Qt.AlignVCenter)
 
         # Divider Kiri
         d_left = QFrame()
         d_left.setFrameShape(QFrame.VLine)
-        d_left.setStyleSheet("color: #cbd5e1; max-height: 44px;")
+        d_left.setStyleSheet("color: #cbd5e1; max-height: 40px;")
         h_layout.addWidget(d_left, alignment=Qt.AlignVCenter)
 
         # TENGAH: Judul, Sub-judul & Status Badges
@@ -372,7 +373,7 @@ class DashboardWindow(QMainWindow):
         title_box.setAlignment(Qt.AlignCenter)
 
         t1 = QLabel("GALILEO VACUUM FALL EXPERIMENT")
-        t1.setStyleSheet("font-size: 17px; font-weight: 800; color: #0f172a; letter-spacing: -0.01em;")
+        t1.setStyleSheet("font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: -0.01em;")
         t1.setAlignment(Qt.AlignCenter)
         title_box.addWidget(t1)
 
@@ -399,24 +400,25 @@ class DashboardWindow(QMainWindow):
         # Divider Kanan
         d_right = QFrame()
         d_right.setFrameShape(QFrame.VLine)
-        d_right.setStyleSheet("color: #cbd5e1; max-height: 44px;")
+        d_right.setStyleSheet("color: #cbd5e1; max-height: 40px;")
         h_layout.addWidget(d_right, alignment=Qt.AlignVCenter)
 
-        # Kanan: Logo Museum Mega Science Center (Besar: 62px)
+        # Kanan: Logo Museum Mega Science Center (Besar: 56px)
         logo_sc_clean = os.path.join(self.assets_dir, "logo_science_center_clean.png")
         if os.path.exists(logo_sc_clean):
             lbl_sc = QLabel()
             pix_sc = QPixmap(logo_sc_clean)
-            lbl_sc.setPixmap(pix_sc.scaledToHeight(62, Qt.SmoothTransformation))
+            lbl_sc.setPixmap(pix_sc.scaledToHeight(54, Qt.SmoothTransformation))
             h_layout.addWidget(lbl_sc, alignment=Qt.AlignVCenter)
 
-        root_layout.addWidget(header_card)
+        root_layout.addWidget(header_card, 0)
 
         # 2. TOOLBAR OPERASIONAL FULL-WIDTH (LEBAR PENUH 1256 PX - ZERO COLLISION)
         tb = QFrame()
         tb.setObjectName("topToolbar")
+        tb.setFixedHeight(38)
         tb_l = QHBoxLayout(tb)
-        tb_l.setContentsMargins(12, 3, 12, 3)
+        tb_l.setContentsMargins(10, 2, 10, 2)
         tb_l.setSpacing(10)
 
         # Kamera
@@ -456,7 +458,7 @@ class DashboardWindow(QMainWindow):
         self.btn_fullscreen.clicked.connect(self.toggle_fullscreen)
         tb_l.addWidget(self.btn_fullscreen)
 
-        root_layout.addWidget(tb)
+        root_layout.addWidget(tb, 0)
 
         # 3. SPLITTER AREA UTAMA (KIRI & KANAN)
         splitter = QSplitter(Qt.Horizontal)
@@ -471,15 +473,15 @@ class DashboardWindow(QMainWindow):
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setStyleSheet("background-color: #090d16; border-radius: 8px; border: 1px solid #1e293b;")
-        self.video_label.setMinimumSize(640, 430)
-        left_layout.addWidget(self.video_label, stretch=5)
+        self.video_label.setMinimumSize(480, 320)
+        left_layout.addWidget(self.video_label, stretch=1)
 
-        # Compact Dock Bawah Slim (Tinggi Terkunci 68px, Zero Text-Overlap)
+        # Compact Dock Bawah Slim (Tinggi Terkunci 72px, Zero Text-Overlap)
         dock = QFrame()
         dock.setObjectName("dockBottom")
-        dock.setFixedHeight(68)
+        dock.setFixedHeight(72)
         dock_layout = QHBoxLayout(dock)
-        dock_layout.setContentsMargins(12, 6, 12, 6)
+        dock_layout.setContentsMargins(12, 4, 12, 4)
         dock_layout.setSpacing(14)
 
         # Kolom Slow-Mo
@@ -702,7 +704,7 @@ class DashboardWindow(QMainWindow):
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
 
-        root_layout.addWidget(splitter)
+        root_layout.addWidget(splitter, 1)
 
     @Slot(np.ndarray)
     def update_camera_view(self, cv_frame: np.ndarray):
