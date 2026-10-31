@@ -450,7 +450,7 @@ class DashboardWindow(QMainWindow):
         self.btn_update.setToolTip("Periksa dan Sinkronkan Pembaruan dari GitHub")
         tb_l.addWidget(self.btn_update)
 
-        self.btn_fullscreen = QPushButton("⛶ Layar Penuh (F11)")
+        self.btn_fullscreen = QPushButton("Layar Penuh (F11)")
         self.btn_fullscreen.setObjectName("btnFullscreen")
         self.btn_fullscreen.setToolTip("Alihkan Tampilan Layar Penuh (F11 / Esc)")
         self.btn_fullscreen.clicked.connect(self.toggle_fullscreen)
@@ -558,23 +558,36 @@ class DashboardWindow(QMainWindow):
         act_layout.setContentsMargins(12, 10, 12, 10)
         act_layout.setSpacing(8)
 
-        l_act_title = QLabel("KENDALI PELEPASAN AKTATOR (3 SERVO)")
+        l_act_title = QLabel("KENDALI PELEPASAN DUA TAHAP (3 SERVO)")
         l_act_title.setStyleSheet("font-size: 11px; font-weight: 800; color: #475569; letter-spacing: 0.5px;")
         act_layout.addWidget(l_act_title)
 
-        self.btn_drop_both = QPushButton("LEPAS KEDUANYA SIMULTAN (SERVO 3)")
-        self.btn_drop_both.setObjectName("btnDropBoth")
-        act_layout.addWidget(self.btn_drop_both)
-
+        # Tahap 1: Pengisian Wadah Penampung (Staging)
         indiv_row = QHBoxLayout()
-        self.btn_drop_feather = QPushButton("Lepas Bulu (Servo 1)")
+        self.btn_drop_feather = QPushButton("1. Muat Bulu (Servo 1)")
         self.btn_drop_feather.setObjectName("btnDropFeather")
-        self.btn_drop_ball = QPushButton("Lepas Bola Besi (Servo 2)")
+        self.btn_drop_ball = QPushButton("2. Muat Bola (Servo 2)")
         self.btn_drop_ball.setObjectName("btnDropBall")
         indiv_row.addWidget(self.btn_drop_feather)
         indiv_row.addWidget(self.btn_drop_ball)
         act_layout.addLayout(indiv_row)
 
+        status_staging = QHBoxLayout()
+        self.lbl_status_feather = QLabel("Bulu: Belum Dimuat")
+        self.lbl_status_feather.setStyleSheet("font-size: 10px; font-weight: 700; color: #94a3b8;")
+        self.lbl_status_ball = QLabel("Bola: Belum Dimuat")
+        self.lbl_status_ball.setStyleSheet("font-size: 10px; font-weight: 700; color: #94a3b8;")
+        status_staging.addWidget(self.lbl_status_feather)
+        status_staging.addStretch()
+        status_staging.addWidget(self.lbl_status_ball)
+        act_layout.addLayout(status_staging)
+
+        # Tahap 2: Buka Bucket Penampung (Jatuh Bebas Simultan)
+        self.btn_drop_both = QPushButton("🚀 3. BUKA BUCKET (JATUH BEBAS SIMULTAN)")
+        self.btn_drop_both.setObjectName("btnDropBoth")
+        act_layout.addWidget(self.btn_drop_both)
+
+        # Tahap 3: Reset
         self.btn_reset = QPushButton("Reset Posisi Aktuator (Standby)")
         self.btn_reset.setObjectName("btnReset")
         act_layout.addWidget(self.btn_reset)
@@ -714,10 +727,13 @@ class DashboardWindow(QMainWindow):
         if self.isFullScreen():
             self.showNormal()
             self.showMaximized()
-            self.btn_fullscreen.setText("⛶ Layar Penuh (F11)")
+            self.btn_fullscreen.setText("Layar Penuh (F11)")
         else:
+            self.showNormal()
             self.showFullScreen()
-            self.btn_fullscreen.setText("❐ Keluar Layar Penuh (Esc)")
+            self.raise_()
+            self.activateWindow()
+            self.btn_fullscreen.setText("Keluar Fullscreen (Esc)")
 
     def keyPressEvent(self, event):
         """Shortcut keyboard F11 dan Escape untuk navigasi layar penuh."""

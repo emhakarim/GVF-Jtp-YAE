@@ -72,9 +72,9 @@ class GalileoControllerApp:
         self.window.btn_update.clicked.connect(lambda: self.updater.check_for_updates(is_silent=False))
         self.window.btn_connect_serial.clicked.connect(self._toggle_esp_connection)
 
-        self.window.btn_drop_feather.clicked.connect(lambda: self._execute_drop("FEATHER"))
-        self.window.btn_drop_ball.clicked.connect(lambda: self._execute_drop("BALL"))
-        self.window.btn_drop_both.clicked.connect(lambda: self._execute_drop("BOTH"))
+        self.window.btn_drop_feather.clicked.connect(self._stage_feather)
+        self.window.btn_drop_ball.clicked.connect(self._stage_ball)
+        self.window.btn_drop_both.clicked.connect(self._execute_bucket_drop)
         self.window.btn_reset.clicked.connect(self._execute_reset)
 
         # 6. UI Slider & Slow-Mo Step Buttons
@@ -142,35 +142,45 @@ class GalileoControllerApp:
         elapsed_ms = (time.perf_counter() - self.current_t_trigger) * 1000.0
         self.window.val_dt.setText(f"{elapsed_ms:.1f}")
 
-    def _execute_drop(self, target: str):
+    def _stage_feather(self):
+        """Tahap 1A: Memuat bulu ke dalam bucket penampung (Kamera & Stopwatch TIDAK aktif)."""
+        self.comm.trigger_drop_feather()
+        self.window.lbl_status_feather.setText("Bulu: Siap di Bucket [OK]")
+        self.window.lbl_status_feather.setStyleSheet("font-size: 10px; font-weight: 700; color: #16a34a;")
+        self.window.append_log("[STAGING] Servo 1 melepas bulu ke dalam wadah penampung.")
+
+    def _stage_ball(self):
+        """Tahap 1B: Memuat bola besi ke dalam bucket penampung (Kamera & Stopwatch TIDAK aktif)."""
+        self.comm.trigger_drop_ball()
+        self.window.lbl_status_ball.setText("Bola: Siap di Bucket [OK]")
+        self.window.lbl_status_ball.setStyleSheet("font-size: 10px; font-weight: 700; color: #16a34a;")
+        self.window.append_log("[STAGING] Servo 2 melepas bola besi ke dalam wadah penampung.")
+
+    def _execute_bucket_drop(self):
+        """Tahap 2: Buka bucket penampung - Kedua objek jatuh bersamaan (Kamera & Stopwatch AKTIF)."""
         self.is_inspecting_replay = False
-        self.current_mode = target
+        self.current_mode = "BOTH"
         self.current_t_trigger = time.perf_counter()
-        
+
         # Mulai stopwatch dinamis pada UI Desktop
         self.window.val_g.setText("MENGUKUR...")
         self.window.val_v.setText("MENGUKUR...")
         self.window.val_dev.setText("---")
         self.stopwatch_timer.start(10)  # Refresh tiap 10 ms
-        
-        # Aktifkan detektor scene
-        self.detector.arm_detection(target_mode=target, t_trigger=self.current_t_trigger)
-        
-        # Kirim perintah fisik ke ESP32
-        if target == "FEATHER":
-            self.comm.trigger_drop_feather()
-        elif target == "BALL":
-            self.comm.trigger_drop_ball()
-        elif target == "BOTH":
-            self.comm.trigger_drop_both()
 
-        # Jika kamera dalam mode mock simulasi, jalankan animasi jatuh sintetis
+        # Aktifkan detektor scene kamera 100 FPS
+        self.detector.arm_detection(target_mode="BOTH", t_trigger=self.current_t_trigger)
+
+        # Buka pintu bucket penampung via ESP32 (Servo 3)
+        self.comm.trigger_drop_both()
+
         if self.camera.is_mock:
-            self.camera.trigger_mock_drop(target)
+            self.camera.trigger_mock_drop("BOTH")
 
-        self.window.append_log(f"[RUN] Trigger drop aktif untuk mode: {target}. Stopwatch berjalan...")
+        self.window.append_log("[EKSPERIMEN] Pintu bucket terbuka! Stopwatch & Detektor 100 FPS AKTIF.")
 
     def _execute_reset(self):
+        """Tahap 3: Mereset ketiga servo ke posisi penahan (Standby)."""
         self.is_inspecting_replay = False
         self.stopwatch_timer.stop()
         self.detector.reset()
@@ -180,9 +190,13 @@ class GalileoControllerApp:
         self.window.val_g_err.setText("Toleransi Galat: ± 0.00 m/s²")
         self.window.val_v.setText("0.00 m/s")
         self.window.val_dev.setText("0.00 %")
+        self.window.lbl_status_feather.setText("Bulu: Belum Dimuat")
+        self.window.lbl_status_feather.setStyleSheet("font-size: 10px; font-weight: 700; color: #94a3b8;")
+        self.window.lbl_status_ball.setText("Bola: Belum Dimuat")
+        self.window.lbl_status_ball.setStyleSheet("font-size: 10px; font-weight: 700; color: #94a3b8;")
         self.window.replay_lbl.setText("Standby (0 Frame)")
         self.window.lbl_frame_time.setText("LIVE")
-        self.window.append_log("[RESET] Sistem kembali ke standby.")
+        self.window.append_log("[RESET] Semua servo kembali ke posisi penahan (Standby).")
 
     @Slot(np.ndarray)
     def _on_display_frame(self, annotated_frame: np.ndarray):
