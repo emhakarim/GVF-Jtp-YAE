@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galileo Vacuum Fall Experiment | Jatim Park Mega Science Center dan Budaya</title>
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-page: #f8fafc;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --border-hover: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent-green: #16a34a;
+            --accent-green-soft: #dcfce7;
+            --accent-blue: #0284c7;
+            --accent-blue-soft: #e0f2fe;
+            --accent-orange: #ea580c;
+            --accent-slate: #334155;
+            --shadow-subtle: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+            --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.02);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 16px 24px;
+            min-height: 100vh;
+        }
+
+        /* Top Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 18px;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-logos {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-right: 16px;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .header-logos img {
+            object-fit: contain;
+            display: block;
+        }
+
+        .header-title h1 {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--text-main);
+        }
+
+        .header-title p {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .badge-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-fps {
+            background-color: var(--accent-green-soft);
+            color: #15803d;
+        }
+
+        .badge-status {
+            background-color: var(--accent-blue-soft);
+            color: #0369a1;
+        }
+
+        /* Layout Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.25fr 1fr;
+            gap: 20px;
+        }
+
+        /* Card Component */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: var(--shadow-subtle);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .card-header h3 {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Video Viewport */
+        .video-container {
+            position: relative;
+            background: #090d16;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 16 / 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #1e293b;
+        }
+
+        .video-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .stream-tag {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+
+        /* Controls Section */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .hero-btn {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #ffffff;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .hero-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(22, 163, 74, 0.35);
+        }
+
+        .hero-btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-dual-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-secondary {
+            background-color: #f1f5f9;
+            color: #334155;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .btn-reset {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+            padding: 9px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-reset:hover {
+            background-color: #fca5a5;
+            color: #7f1d1d;
+        }
+
+        /* Telemetry Cards Grid */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .tele-box {
+            background: #f8fafc;
+            border: 1px solid #edf2f7;
+            padding: 14px;
+            border-radius: 10px;
+            transition: border-color 0.2s;
+        }
+
+        .tele-box:hover {
+            border-color: var(--border-hover);
+        }
+
+        .tele-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .tele-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .tele-unit {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        /* Slow-Mo Scrubber */
+        .scrubber-wrap {
+            margin-top: 14px;
+            background: #f8fafc;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .scrubber-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        /* Chart Canvas */
+        .chart-box {
+            margin-top: 14px;
+            height: 160px;
+            position: relative;
+        }
+
+        /* Terminal Console */
+        .terminal {
+            background: #090d16;
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            padding: 12px;
+            border-radius: 8px;
+            height: 100px;
+            overflow-y: auto;
+            margin-top: 14px;
+            border: 1px solid #1e293b;
+        }
+
+        .terminal-line {
+            margin-bottom: 4px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <header>
+        <div class="header-brand">
+            <div class="header-logos">
+                <img src="/assets/logo_jtp.png" alt="Jawa Timur Park Group" style="height: 38px;">
+            </div>
+            <div class="header-title">
+                <h1>GALILEO VACUUM FALL EXPERIMENT</h1>
+                <p>Wahana Eksperimen Fisika & Kinematika Vakum (100 FPS) &bull; Crafted by Yotta Aksara Energi</p>
+            </div>
+            <div class="badge-group" style="margin-left: 14px;">
+                <select id="selectCamera" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 11px; font-weight: 600; background: #ffffff; cursor: pointer; color: #1e293b;">
+                    <option value="0">Mencari Kamera...</option>
+                </select>
+                <span class="badge badge-fps" id="badgeFps">CAMERA: 100 FPS</span>
+                <span class="badge badge-status" id="badgeWs">WS: CONNECTED</span>
+            </div>
+        </div>
+        <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 16px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-subtle);">
+            <img src="/assets/logo_science_center_clean.png" alt="Museum Mega Science Center & Budaya" style="height: 90px; object-fit: contain; display: block;">
+        </div>
+    </header>
+
+    <div class="dashboard-grid">
+        <!-- Kolom Kiri: Video & Inspeksi Slow-Motion 100 FPS -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Live Feed & Visual Kinematika</h3>
+                <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">h = 2.000 m</span>
+            </div>
+
+            <div class="video-container">
+                <span class="stream-tag" id="streamModeBadge">🔴 LIVE FEED (REAL-TIME)</span>
+                <img id="streamImg" src="/video_feed" alt="Video Stream OV9281">
+            </div>
+
+            <!-- Inspeksi Slow-Motion Frame-by-Frame (10 ms per step) -->
+            <div class="scrubber-wrap">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #334155; text-transform: uppercase;">Inspeksi Slow-Motion 100 FPS (Frame-by-Frame)</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span id="replayCountText" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent-blue); font-weight: 700;">Standby (Live Mode)</span>
+                        <button class="btn-secondary" id="btnReturnLive" style="padding: 3px 8px; font-size: 10px; font-weight: 700; color: #dc2626; border-color: #fecaca; background: #fef2f2;">🔴 Live Feed</button>
+                    </div>
+                </div>
+                <input type="range" id="replaySlider" min="0" max="0" value="0" disabled>
+                <div class="scrubber-controls">
+                    <button class="btn-secondary" id="btnPrevFrame" style="padding: 4px 10px;" disabled>&larr; -10 ms</button>
+                    <span id="frameTimeText">t = 0.000 s</span>
+                    <button class="btn-secondary" id="btnNextFrame" style="padding: 4px 10px;" disabled>+10 ms &rarr;</button>
+                </div>
+            </div>
+
+            <!-- Profil Grafik Perubahan Scene / Motion -->
+            <div class="chart-box">
+                <canvas id="motionChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Kolom Kanan: Kontrol Aktuator (3 Servo) & Telemetri Sains -->
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Kendali Aktuator 3-Servo ESP32</h3>
+                    <span style="font-size: 11px; color: var(--text-muted);">UART 115200 / Wi-Fi</span>
+                </div>
+
+            <!-- Tombol Aktuator -->
+            <div class="control-panel">
+                <button class="hero-btn" id="btnDropBoth">
+                    LEPAS SIMULTAN: BULU + BOLA BESI (SERVO 3)
+                </button>
+
+                <div class="btn-dual-row">
+                    <button class="btn-secondary" id="btnDropFeather">Lepas Bulu Saja (Servo 1)</button>
+                    <button class="btn-secondary" id="btnDropBall">Lepas Bola Saja (Servo 2)</button>
+                </div>
+
+                <button class="btn-reset" id="btnReset">Reset Aktuator ke Posisi Hold (Standby)</button>
+            </div>
+
+            <!-- Kartu Telemetri Kinematika & Gravitasi -->
+            <div class="card-header" style="margin-top: 20px;">
+                <h3>Telemetri Eksperimen Gravitasi</h3>
+                <span style="font-size: 11px; color: var(--accent-green); font-weight: 700;">First Principles Data</span>
+            </div>
+
+            <div class="telemetry-grid">
+                <!-- Waktu Jatuh dt -->
+                <div class="tele-box">
+                    <div class="tele-label">Waktu Jatuh (dt)</div>
+                    <div class="tele-value" id="valDt">0.0<span class="tele-unit">ms</span></div>
+                </div>
+
+                <!-- Estimasi Gravitasi g -->
+                <div class="tele-box">
+                    <div class="tele-label">Gravitasi Terhitung (g)</div>
+                    <div class="tele-value" id="valG">0.000<span class="tele-unit">m/s²</span></div>
+                </div>
+
+                <!-- Kecepatan Akhir v -->
+                <div class="tele-box">
+                    <div class="tele-label">Kecepatan Impak (v)</div>
+                    <div class="tele-value" id="valV">0.00<span class="tele-unit">m/s</span></div>
+                </div>
+
+                <!-- Deviasi terhadap g standard -->
+                <div class="tele-box">
+                    <div class="tele-label">Deviasi thd 9.807</div>
+                    <div class="tele-value" id="valDev">0.00<span class="tele-unit">%</span></div>
+                </div>
+            </div>
+
+            <!-- Log Terminal Hardware -->
+            <div class="terminal" id="terminalLog">
+                <div class="terminal-line">[SYSTEM] Hybrid Web Client terhubung ke server lokal.</div>
+                <div class="terminal-line">[HARDWARE] Ingestion OV2710 aktif pada 100 FPS (Resolusi VGA 10 ms).</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Script Logika Frontend WebSocket & Chart.js -->
+    <script>
+        // Inisialisasi WebSocket
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        let socket = new WebSocket(wsUrl);
+
+        let replayFrames = [];
+
+        // Inisialisasi Chart.js untuk profil intensitas motion
+        const ctx = document.getElementById('motionChart').getContext('2d');
+        const motionChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(50).fill(''),
+                datasets: [{
+                    label: 'Perubahan Scene ROI (%)',
+                    data: Array(50).fill(0),
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: '#f1f5f9' },
+                        ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        function log(msg) {
+            const term = document.getElementById('terminalLog');
+            const el = document.createElement('div');
+            el.className = 'terminal-line';
+            el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            term.appendChild(el);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        socket.onopen = () => {
+            document.getElementById('badgeWs').textContent = 'WS: CONNECTED';
+            document.getElementById('badgeWs').style.color = '#0369a1';
+            log("WebSocket terhubung ke backend FastAPI.");
+        };
+
+        socket.onclose = () => {
+            document.getElementById('badgeWs').textContent = 'WS: DISCONNECTED';
+            document.getElementById('badgeWs').style.color = '#dc2626';
+            log("WebSocket terputus.");
+        };
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'INIT_STATE' || data.type === 'CAMERAS_LIST') {
+                if (data.cameras && data.cameras.length > 0) {
+                    const sel = document.getElementById('selectCamera');
+                    sel.innerHTML = '';
+                    data.cameras.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.index;
+                        opt.textContent = c.label;
+                        sel.appendChild(opt);
+                    });
+                    if (data.active_camera !== undefined) {
+                        sel.value = data.active_camera;
+                    }
+                    log(`Ditemukan ${data.cameras.length} perangkat kamera.`);
+                }
+            }
+            else if (data.type === 'MOTION_TELEMETRY') {
+                document.getElementById('badgeFps').textContent = `CAMERA: ${data.fps} FPS`;
+                // Update chart
+                motionChart.data.datasets[0].data.shift();
+                motionChart.data.datasets[0].data.push(data.motion_pct);
+                motionChart.update();
+            }
+            else if (data.type === 'ARRIVAL_EVENT') {
+                stopLiveStopwatch();
+                document.getElementById('valDt').innerHTML = `${data.dt_ms}<span class="tele-unit">ms</span>`;
+                document.getElementById('valG').innerHTML = `${data.g}<span class="tele-unit">m/s²</span>`;
+                document.getElementById('valV').innerHTML = `${data.v_impact}<span class="tele-unit">m/s</span>`;
+                document.getElementById('valDev').innerHTML = `${data.deviation_pct > 0 ? '+' : ''}${data.deviation_pct}<span class="tele-unit">%</span>`;
+                log(`IMPACT TERDETEKSI! Mode: ${data.mode} | dt=${data.dt_ms} ms | g=${data.g} m/s²`);
+            }
+            else if (data.type === 'SLOWMO_READY') {
+                log(`Menerima buffer slow-motion: ${data.total_frames} frame.`);
+                fetchReplayFrames();
+            }
+            else if (data.type === 'STATUS_LOG') {
+                log(data.msg);
+            }
+            else if (data.type === 'CAMERA_STATUS') {
+                log(data.msg);
+                // Refresh tag gambar agar reconnect ke feed kamera hardware yang baru dibuka
+                document.getElementById('streamImg').src = '/video_feed?t=' + new Date().getTime();
+            }
+        };
+
+
+        // Ambil frame slow-mo saat tersedia
+        async function fetchReplayFrames() {
+            try {
+                const resp = await fetch('/api/replay_frames');
+                replayFrames = await resp.json();
+                if (replayFrames.length > 0) {
+                    const slider = document.getElementById('replaySlider');
+                    slider.disabled = false;
+                    slider.min = 0;
+                    slider.max = replayFrames.length - 1;
+                    slider.value = Math.floor(replayFrames.length / 2);
+                    document.getElementById('btnPrevFrame').disabled = false;
+                    document.getElementById('btnNextFrame').disabled = false;
+                    document.getElementById('replayCountText').textContent = `${replayFrames.length} Frame Siap (Geser untuk Replay)`;
+                    log(`Slow-motion replay (${replayFrames.length} frame) siap di slider bawah.`);
+                }
+            } catch (err) {
+                console.error("Gagal mengambil frame slow-mo:", err);
+            }
+        }
+
+        function switchToLiveFeed() {
+            const stream = document.getElementById('streamImg');
+            stream.src = "/video_feed?t=" + Date.now();
+            const badge = document.getElementById('streamModeBadge');
+            badge.textContent = '🔴 LIVE FEED (REAL-TIME)';
+            badge.style.color = '#ef4444';
+            badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            document.getElementById('frameTimeText').textContent = 't = LIVE';
+            document.getElementById('replayCountText').textContent = 'Standby (Live Mode)';
+            log("Tampilan dikembalikan ke Live Camera Stream.");
+        }
+
+        function updateReplayFrame(index) {
+            if (replayFrames[index]) {
+                const item = replayFrames[index];
+                document.getElementById('streamImg').src = `data:image/jpeg;base64,${item.b64}`;
+                const dtText = item.dt_ms !== undefined ? `Δt = ${item.dt_ms > 0 ? '+' : ''}${item.dt_ms} ms | ` : '';
+                document.getElementById('frameTimeText').textContent = `${dtText}Frame ${parseInt(index) + 1}/${replayFrames.length}`;
+                const badge = document.getElementById('streamModeBadge');
+                badge.textContent = `⏸️ INSPEKSI SLOW-MO (${dtText}Frame ${parseInt(index) + 1}/${replayFrames.length})`;
+                badge.style.color = '#38bdf8';
+                badge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+            }
+        }
+
+        let stopwatchTimer = null;
+        let tDropStart = 0;
+
+        function startLiveStopwatch() {
+            stopLiveStopwatch();
+            tDropStart = performance.now();
+            const valDt = document.getElementById('valDt');
+            const valG = document.getElementById('valG');
+            const valV = document.getElementById('valV');
+            const valDev = document.getElementById('valDev');
+            valG.innerHTML = `MENGUKUR...`;
+            valV.innerHTML = `MENGUKUR...`;
+            valDev.innerHTML = `---`;
+            
+            valDt.style.color = '#ea580c';
+            stopwatchTimer = setInterval(() => {
+                const elapsed = performance.now() - tDropStart;
+                valDt.innerHTML = `${elapsed.toFixed(1)}<span class="tele-unit">ms</span>`;
+            }, 10);
+        }
+
+        function stopLiveStopwatch() {
+            if (stopwatchTimer) {
+                clearInterval(stopwatchTimer);
+                stopwatchTimer = null;
+            }
+            const valDt = document.getElementById('valDt');
+            if (valDt) valDt.style.color = '';
+        }
+
+        // Slider listener
+        document.getElementById('replaySlider').addEventListener('input', (e) => {
+            updateReplayFrame(e.target.value);
+        });
+
+        document.getElementById('btnPrevFrame').addEventListener('click', () => {
+            const slider = document.getElementById('replaySlider');
+            if (slider.value > 0) {
+                slider.value--;
+                updateReplayFrame(slider.value);
+            }
+        });
+
+        document.getElementById('btnNextFrame').addEventListener('click', () => {
+            const slider = document.getElementById('replaySlider');
+            if (slider.value < replayFrames.length - 1) {
+                slider.value++;
+                updateReplayFrame(slider.value);
+            }
+        });
+
+        document.getElementById('btnReturnLive').addEventListener('click', () => {
+            switchToLiveFeed();
+        });
+
+        // Kontrol Tombol Aktuator 3-Servo
+        document.getElementById('btnDropBoth').addEventListener('click', () => {
+            startLiveStopwatch();
+            socket.send(JSON.stringify({ cmd: 'DROP_BOTH' }));
+            log("Trigger: Drop SIMULTAN (Bulu + Bola Besi) dikirim. Stopwatch aktif...");
+        });
+
+        document.getElementById('btnDropFeather').addEventListener('click', () => {
+            startLiveStopwatch();
+            socket.send(JSON.stringify({ cmd: 'DROP_FEATHER' }));
+            log("Trigger: Drop BULU dikirim. Stopwatch aktif...");
+        });
+
+        document.getElementById('btnDropBall').addEventListener('click', () => {
+            startLiveStopwatch();
+            socket.send(JSON.stringify({ cmd: 'DROP_BALL' }));
+            log("Trigger: Drop BOLA BESI dikirim. Stopwatch aktif...");
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            stopLiveStopwatch();
+            socket.send(JSON.stringify({ cmd: 'RESET' }));
+            switchToLiveFeed();
+            document.getElementById('valDt').innerHTML = `0.0<span class="tele-unit">ms</span>`;
+            document.getElementById('valG').innerHTML = `0.000<span class="tele-unit">m/s²</span>`;
+            document.getElementById('valV').innerHTML = `0.00<span class="tele-unit">m/s</span>`;
+            document.getElementById('valDev').innerHTML = `0.00<span class="tele-unit">%</span>`;
+            document.getElementById('replaySlider').disabled = true;
+            document.getElementById('btnPrevFrame').disabled = true;
+            document.getElementById('btnNextFrame').disabled = true;
+            log("Aktuator & Detektor direset ke Standby.");
+        });
+
+        const streamImgEl = document.getElementById('streamImg');
+        streamImgEl.onerror = () => {
+            // Reconnect jika koneksi stream sempat terinterupsi
+            setTimeout(() => {
+                streamImgEl.src = '/video_feed?t=' + Date.now();
+            }, 800);
+        };
+
+        document.getElementById('selectCamera').addEventListener('change', (e) => {
+            const camIdx = e.target.value;
+            socket.send(JSON.stringify({ cmd: 'SWITCH_CAMERA', index: camIdx }));
+            log(`Permintaan ganti kamera ke port/index ${camIdx} dikirim. Menunggu inisialisasi hardware...`);
+        });
+    </script>
+</body>
+</html>
