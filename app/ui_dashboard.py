@@ -729,7 +729,6 @@ class DashboardWindow(QMainWindow):
             self.showMaximized()
             self.btn_fullscreen.setText("Layar Penuh (F11)")
         else:
-            self.showNormal()
             self.showFullScreen()
             self.raise_()
             self.activateWindow()
