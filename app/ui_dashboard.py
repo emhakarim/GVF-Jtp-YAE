@@ -381,7 +381,7 @@ class DashboardWindow(QMainWindow):
         sub_row.setSpacing(10)
         sub_row.setAlignment(Qt.AlignCenter)
 
-        t2 = QLabel("Wahana Fisika & Kinematika Vakum (100 FPS) • Yotta Aksara Energi")
+        t2 = QLabel("Wahana Fisika & Kinematika Vakum (120 FPS) • Yotta Aksara Energi")
         t2.setStyleSheet("font-size: 11px; font-weight: 600; color: #475569;")
         sub_row.addWidget(t2)
 
@@ -390,7 +390,7 @@ class DashboardWindow(QMainWindow):
         self.badge_status.setObjectName("pillStatusStandby")
         sub_row.addWidget(self.badge_status)
 
-        self.fps_badge = QLabel("● CAM: 100 FPS")
+        self.fps_badge = QLabel("● CAM: 120 FPS")
         self.fps_badge.setObjectName("pillStatusFps")
         sub_row.addWidget(self.fps_badge)
 
@@ -488,7 +488,7 @@ class DashboardWindow(QMainWindow):
         sm_box = QVBoxLayout()
         sm_box.setSpacing(3)
         sm_top = QHBoxLayout()
-        l_sm = QLabel("INSPEKSI SLOW-MOTION (100 FPS)")
+        l_sm = QLabel("INSPEKSI SLOW-MOTION (120 FPS)")
         l_sm.setStyleSheet("font-size: 11px; font-weight: 800; color: #334155;")
         self.replay_lbl = QLabel("Standby (0 Frame)")
         self.replay_lbl.setStyleSheet("font-size: 11px; font-weight: 700; color: #0284c7; font-family: monospace;")

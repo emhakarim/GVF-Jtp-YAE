@@ -35,10 +35,10 @@ class CameraWorker(QThread):
                     test_cap.release()
 
         # Opsi Simulasi Sintetis
-        camera_list.append((-1, "Mode Simulasi Lab (Mock 100 FPS)"))
+        camera_list.append((-1, "Mode Simulasi Lab (Mock 120 FPS)"))
         return camera_list
 
-    def __init__(self, camera_index: int = 0, target_fps: int = 100, width: int = 640, height: int = 480, detector=None):
+    def __init__(self, camera_index: int = 0, target_fps: int = 120, width: int = 640, height: int = 480, detector=None):
         super().__init__()
         self.camera_index = camera_index
         self.target_fps = target_fps
@@ -83,7 +83,7 @@ class CameraWorker(QThread):
         base[:, tube_left:tube_left+2] = 80
         base[:, tube_right:tube_right+2] = 80
 
-        cv2.putText(base, "HIGH-SPEED SYNTHETIC STREAM [100 FPS]", (20, 30), 
+        cv2.putText(base, "HIGH-SPEED SYNTHETIC STREAM [120 FPS]", (20, 30), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, 50, 2)
 
         self.static_mock_canvas = cv2.cvtColor(base, cv2.COLOR_GRAY2BGR)
@@ -108,7 +108,7 @@ class CameraWorker(QThread):
         if index < 0:
             self.is_mock = True
             self.camera_index = -1
-            msg = "Mode Simulasi Lab Aktif (100 FPS Sintetis)"
+            msg = "Mode Simulasi Lab Aktif (120 FPS Sintetis)"
             self.camera_status.emit(False, msg)
             if self.status_callback: self.status_callback(False, msg)
             return
@@ -124,15 +124,25 @@ class CameraWorker(QThread):
 
             self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-            # Konfigurasi mode High-Speed OV2710 / OV9281 (640x480 @ 100 FPS MJPG)
-            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-            self.cap.set(cv2.CAP_PROP_FPS, self.target_fps)
+            # High-Speed Adaptive Ladder (120 FPS Native OV2710 -> 100 FPS OV9281 -> 60 FPS -> 30 FPS)
+            negotiated = False
+            test_frame = None
+            for fps_candidate in [120, 100, 60, 30]:
+                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+                self.cap.set(cv2.CAP_PROP_FPS, fps_candidate)
 
-            # Validasi pembacaan frame awal
-            ret, test_frame = self.cap.read()
-            if not ret or test_frame is None:
+                for _ in range(3):
+                    ret, test_frame = self.cap.read()
+                    if ret and test_frame is not None:
+                        negotiated = True
+                        self.target_fps = fps_candidate
+                        break
+                if negotiated:
+                    break
+
+            if not negotiated:
                 # Fallback untuk perangkat yang menolak parameter high-speed (misal webcam laptop default)
                 self.cap.release()
                 time.sleep(0.15)
@@ -141,12 +151,13 @@ class CameraWorker(QThread):
                     self.cap = cv2.VideoCapture(index)
                 self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 ret, test_frame = self.cap.read()
+                self.target_fps = 30
 
-            if ret and test_frame is not None:
+            if test_frame is not None:
                 ch_h, ch_w = test_frame.shape[:2]
                 self.is_mock = False
                 self.camera_index = index
-                msg = f"Kamera Port {index} Aktif ({ch_w}x{ch_h})"
+                msg = f"Kamera Port {index} Aktif ({ch_w}x{ch_h} @ {self.target_fps} FPS)"
                 self.camera_status.emit(True, msg)
                 if self.status_callback: self.status_callback(True, msg)
             else:

@@ -24,9 +24,9 @@ class GalileoControllerApp:
         
         # Inisialisasi Modul Inti
         self.physics = PhysicsEngine(height_meters=2.0, delta_h_meters=0.002)
-        self.detector = SceneDetector(buffer_size=120)
+        self.detector = SceneDetector(buffer_size=150)
         self.comm = CommManager()
-        self.camera = CameraWorker(camera_index=0, target_fps=100, width=640, height=480, detector=self.detector)
+        self.camera = CameraWorker(camera_index=0, target_fps=120, width=640, height=480, detector=self.detector)
         
         self.current_t_trigger = 0.0
         self.current_mode = "BOTH"

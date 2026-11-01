@@ -15,7 +15,7 @@ class SceneDetector(QObject):
     motion_level_updated = Signal(float)    # Tingkat perubahan scene saat ini (0 - 100%)
     slowmo_replay_ready = Signal(list)       # Buffer frame slow-motion (pre + post event)
 
-    def __init__(self, buffer_size: int = 120):
+    def __init__(self, buffer_size: int = 150):
         super().__init__()
         self.buffer_size = buffer_size
         self.frame_buffer = deque(maxlen=buffer_size)
@@ -47,7 +47,7 @@ class SceneDetector(QObject):
         self.drop_target_mode = "BOTH"  # FEATHER, BALL, BOTH
         self.recorded_events = []
         self.post_event_counter = 0
-        self.post_event_target_frames = 35
+        self.post_event_target_frames = 40
 
     def set_roi(self, x_ratio: float, y_ratio: float, w_ratio: float, h_ratio: float):
         """Memperbarui zona ROI deteksi."""
