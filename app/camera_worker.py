@@ -127,11 +127,23 @@ class CameraWorker(QThread):
             # High-Speed Adaptive Ladder (120 FPS Native OV2710 -> 100 FPS OV9281 -> 60 FPS -> 30 FPS)
             negotiated = False
             test_frame = None
+            mjpg_fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+
             for fps_candidate in [120, 100, 60, 30]:
-                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                # Urutan wajib DirectShow: FOURCC -> Dimensi -> Kunci ulang FOURCC -> FPS
+                self.cap.set(cv2.CAP_PROP_FOURCC, mjpg_fourcc)
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+                self.cap.set(cv2.CAP_PROP_FOURCC, mjpg_fourcc)
                 self.cap.set(cv2.CAP_PROP_FPS, fps_candidate)
+
+                # Matikan Auto-Exposure Low-Light Throttling pada sensor CMOS (OV2710/OV9281)
+                # agar waktu integrasi shutter tidak melambat ke 33.3 ms (30 FPS) di dalam ruangan
+                if fps_candidate >= 100:
+                    self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)     # Manual mode (UVC standard)
+                    self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # Manual mode (DirectShow)
+                    self.cap.set(cv2.CAP_PROP_EXPOSURE, -7)         # 2^-7 s = 7.81 ms (< 8.33 ms untuk 120 FPS)
+                    self.cap.set(cv2.CAP_PROP_GAIN, 80)             # Kompensasi penguatan analog indoor
 
                 for _ in range(3):
                     ret, test_frame = self.cap.read()
@@ -155,9 +167,12 @@ class CameraWorker(QThread):
 
             if test_frame is not None:
                 ch_h, ch_w = test_frame.shape[:2]
+                drv_fps = self.cap.get(cv2.CAP_PROP_FPS)
+                drv_exp = self.cap.get(cv2.CAP_PROP_EXPOSURE)
                 self.is_mock = False
                 self.camera_index = index
-                msg = f"Kamera Port {index} Aktif ({ch_w}x{ch_h} @ {self.target_fps} FPS)"
+                fps_info = f"{drv_fps:.0f}" if drv_fps > 0 else f"{self.target_fps}"
+                msg = f"Kamera Port {index} Aktif ({ch_w}x{ch_h} @ {fps_info} FPS | Exp: {drv_exp:.0f})"
                 self.camera_status.emit(True, msg)
                 if self.status_callback: self.status_callback(True, msg)
             else:
