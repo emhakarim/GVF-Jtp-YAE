@@ -39,6 +39,7 @@ class GalileoControllerApp:
 
         # Pengelola Pembaruan Sistem (Git Auto-Updater)
         self.updater = AppUpdater(parent_window=self.window, on_clean_teardown=self._clean_teardown)
+        self.app.aboutToQuit.connect(self._clean_teardown)
 
         self._connect_signals()
         self._populate_cameras()

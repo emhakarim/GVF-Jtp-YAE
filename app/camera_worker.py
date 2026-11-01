@@ -19,21 +19,30 @@ class CameraWorker(QThread):
 
     @staticmethod
     def list_available_cameras():
-        """Mendeteksi daftar perangkat video yang tersedia menggunakan QMediaDevices."""
-        camera_list = []
+        """Mendeteksi perangkat video dan memprioritaskan kamera High-Speed (>=100 FPS) di urutan pertama."""
+        high_speed_cams = []
+        standard_cams = []
         try:
             from PySide6.QtMultimedia import QMediaDevices
             devices = QMediaDevices.videoInputs()
             for idx, dev in enumerate(devices):
                 desc = dev.description()
-                camera_list.append((idx, f"Cam {idx}: {desc}"))
+                max_hw_fps = 30.0
+                for fmt in dev.videoFormats():
+                    if fmt.maxFrameRate() > max_hw_fps:
+                        max_hw_fps = fmt.maxFrameRate()
+                if max_hw_fps >= 100.0:
+                    high_speed_cams.append((idx, f"Cam {idx}: {desc} [{int(round(max_hw_fps))} FPS]"))
+                else:
+                    standard_cams.append((idx, f"Cam {idx}: {desc}"))
         except Exception:
             for i in range(3):
                 test_cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
                 if test_cap.isOpened():
-                    camera_list.append((i, f"Kamera Port {i}"))
+                    standard_cams.append((i, f"Kamera Port {i}"))
                     test_cap.release()
 
+        camera_list = high_speed_cams + standard_cams
         # Opsi Simulasi Sintetis
         camera_list.append((-1, "Mode Simulasi Lab (Mock 120 FPS)"))
         return camera_list
@@ -93,8 +102,12 @@ class CameraWorker(QThread):
 
     def switch_camera(self, new_index: int):
         """Meminta pergantian kamera secara asinkron tanpa memblokir thread pemanggil."""
-        self._new_camera_index = new_index
-        self._switch_requested = True
+        if not self.running:
+            self.camera_index = new_index
+            self.is_mock = (new_index < 0)
+        else:
+            self._new_camera_index = new_index
+            self._switch_requested = True
 
     def _open_camera(self, index: int):
         if self.cap is not None:
@@ -114,48 +127,66 @@ class CameraWorker(QThread):
             return
 
         try:
-            # Buka perangkat video
-            self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-            if not self.cap or not self.cap.isOpened():
-                self.cap = cv2.VideoCapture(index)
-
-            if not self.cap or not self.cap.isOpened():
-                raise RuntimeError(f"Port {index} tidak dapat dibuka.")
-
-            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-            # High-Speed Adaptive Ladder (120 FPS Native OV2710 -> 100 FPS OV9281 -> 60 FPS -> 30 FPS)
             negotiated = False
             test_frame = None
             mjpg_fourcc = cv2.VideoWriter_fourcc(*'MJPG')
 
-            for fps_candidate in [120, 100, 60, 30]:
-                # Urutan wajib DirectShow: FOURCC -> Dimensi -> Kunci ulang FOURCC -> FPS
-                self.cap.set(cv2.CAP_PROP_FOURCC, mjpg_fourcc)
+            # 1. Prioritaskan Windows Media Foundation (CAP_MSMF) yang mendukung penuh 640x480 @ 120.1 FPS
+            self.cap = cv2.VideoCapture(index, cv2.CAP_MSMF)
+            if self.cap and self.cap.isOpened():
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-                self.cap.set(cv2.CAP_PROP_FOURCC, mjpg_fourcc)
-                self.cap.set(cv2.CAP_PROP_FPS, fps_candidate)
+                self.cap.set(cv2.CAP_PROP_FPS, 120)
+                self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+                self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+                self.cap.set(cv2.CAP_PROP_EXPOSURE, -7)
+                self.cap.set(cv2.CAP_PROP_GAIN, 80)
 
-                # Matikan Auto-Exposure Low-Light Throttling pada sensor CMOS (OV2710/OV9281)
-                # agar waktu integrasi shutter tidak melambat ke 33.3 ms (30 FPS) di dalam ruangan
-                if fps_candidate >= 100:
-                    self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)     # Manual mode (UVC standard)
-                    self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # Manual mode (DirectShow)
-                    self.cap.set(cv2.CAP_PROP_EXPOSURE, -7)         # 2^-7 s = 7.81 ms (< 8.33 ms untuk 120 FPS)
-                    self.cap.set(cv2.CAP_PROP_GAIN, 80)             # Kompensasi penguatan analog indoor
-
-                for _ in range(3):
+                for _ in range(4):
                     ret, test_frame = self.cap.read()
                     if ret and test_frame is not None:
                         negotiated = True
-                        self.target_fps = fps_candidate
+                        drv_fps = self.cap.get(cv2.CAP_PROP_FPS)
+                        self.target_fps = int(round(drv_fps)) if drv_fps > 0 else 120
                         break
-                if negotiated:
-                    break
+
+            # 2. Fallback ke DirectShow (CAP_DSHOW) jika MSMF gagal
+            if not negotiated:
+                if self.cap is not None:
+                    self.cap.release()
+                    time.sleep(0.10)
+                self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+                if not self.cap or not self.cap.isOpened():
+                    self.cap = cv2.VideoCapture(index)
+
+                if not self.cap or not self.cap.isOpened():
+                    raise RuntimeError(f"Port {index} tidak dapat dibuka.")
+
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                for fps_candidate in [120, 100, 60, 30]:
+                    self.cap.set(cv2.CAP_PROP_FOURCC, mjpg_fourcc)
+                    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+                    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+                    self.cap.set(cv2.CAP_PROP_FOURCC, mjpg_fourcc)
+                    self.cap.set(cv2.CAP_PROP_FPS, fps_candidate)
+                    if fps_candidate >= 100:
+                        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+                        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+                        self.cap.set(cv2.CAP_PROP_EXPOSURE, -7)
+                        self.cap.set(cv2.CAP_PROP_GAIN, 80)
+
+                    for _ in range(3):
+                        ret, test_frame = self.cap.read()
+                        if ret and test_frame is not None:
+                            negotiated = True
+                            self.target_fps = fps_candidate
+                            break
+                    if negotiated:
+                        break
 
             if not negotiated:
-                # Fallback untuk perangkat yang menolak parameter high-speed (misal webcam laptop default)
+                # Fallback terakhir untuk webcam standar
                 self.cap.release()
                 time.sleep(0.15)
                 self.cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
@@ -169,10 +200,11 @@ class CameraWorker(QThread):
                 ch_h, ch_w = test_frame.shape[:2]
                 drv_fps = self.cap.get(cv2.CAP_PROP_FPS)
                 drv_exp = self.cap.get(cv2.CAP_PROP_EXPOSURE)
+                backend_name = self.cap.getBackendName()
                 self.is_mock = False
                 self.camera_index = index
                 fps_info = f"{drv_fps:.0f}" if drv_fps > 0 else f"{self.target_fps}"
-                msg = f"Kamera Port {index} Aktif ({ch_w}x{ch_h} @ {fps_info} FPS | Exp: {drv_exp:.0f})"
+                msg = f"Kamera Port {index} Aktif [{backend_name}] ({ch_w}x{ch_h} @ {fps_info} FPS | Exp: {drv_exp:.0f})"
                 self.camera_status.emit(True, msg)
                 if self.status_callback: self.status_callback(True, msg)
             else:
