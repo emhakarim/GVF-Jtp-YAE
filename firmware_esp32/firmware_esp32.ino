@@ -1,252 +1,103 @@
 // =================================================================
 // Galileo Vacuum Fall Experiment - ESP32 Actuator Controller
-// 4-Servo Dual-Stage Release System (Carosel, Dropper, Ball, Bucket)
-// Developed for Physics Lab Research | Yotta Aksara Energi & Antigravity AI
+// 4-Servo Dual-Stage Release System (Modular C++ Architecture)
+// Crafted for Physics Lab Research | Yotta Aksara Energi & Antigravity AI
 // =================================================================
 
 #include <Arduino.h>
-#include <ESP32Servo.h>
 #include <WiFi.h>
-#include <WebSocketsServer.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+
 #include "config.h"
+#include "actuators.h"
+#include "webpage.h"
 
-// Objek 4 Servo Aktuator
-Servo servoCarousel; // Servo 1 (Pin 15): Stock Bulu Carousel Indexer
-Servo servoDropper;  // Servo 2 (Pin 16): Penjatuh Bulu Cepat ke Bucket
-Servo servoBall;     // Servo 3 (Pin 17): Stock Ball Dispenser
-Servo servoBucket;   // Servo 4 (Pin 18): Bucket Release Simultan (Jatuh Bebas)
+// ================= OBJECTS =================
+ActuatorSystem actuators;
+AsyncWebServer server(HTTP_PORT);
+AsyncWebSocket ws("/ws");
+AsyncWebSocket wsRoot("/"); // Kompatibilitas jika klien menghubungkan langsung ke root "/"
 
-// Server WebSocket
-WebSocketsServer webSocket = WebSocketsServer(WEBSOCKET_PORT);
+// ================= PROTOTYPES =================
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
+               AwsEventType type, void *arg, uint8_t *data, size_t len);
+void handleWsMessage(void *arg, uint8_t *data, size_t len, AsyncWebSocketClient *client);
+void handleCommand(const String& jsonStr, AsyncWebSocketClient *client = nullptr);
+void broadcastJson(const JsonDocument& doc);
+void sendClientJson(AsyncWebSocketClient *client, const JsonDocument& doc);
 
-// State tracking Servo 1 (Gerak Halus Non-blocking)
-int currentCarouselAngle = 0;
-int targetCarouselAngle = 0;
-int currentFeatherIndex = 0; // Index 0 s/d 10 (Total 11 slot: 0, 18, 36 ... 180 deg)
-unsigned long lastCarouselStepTime = 0;
-
-// State tracking Servo 2 & Servo 3 (Auto-return timer)
-unsigned long dropperTriggerTime = 0;
-unsigned long ballTriggerTime = 0;
-bool pendingReturnDropper = false;
-bool pendingReturnBall = false;
-
-// State tracking Servo 4 (Latched open saat drop hingga reset eksplisit)
-bool bucketIsOpen = false;
-
-// Forward declaration
-void setupServos();
-void updateCarouselSmoothMotion();
-void updateStagingTimers();
-void stageFeather();
-void stageBall();
-void releaseBucketSimultaneous();
-void resetAllServos();
-void resetCarousel();
-void sendResponse(const JsonDocument& doc, uint8_t numClient = 255);
-void handleCommand(const String& jsonStr, uint8_t numClient = 255);
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
-
+// ================= SETUP =================
 void setup() {
     Serial.begin(SERIAL_BAUD_RATE);
     pinMode(PIN_STATUS_LED, OUTPUT);
     digitalWrite(PIN_STATUS_LED, LOW);
 
-    setupServos();
+    // Inisialisasi Subsistem Aktuator 4-Servo (Fail-safe initial hold)
+    actuators.begin();
 
-    // Inisialisasi Wi-Fi (Station dengan Fallback ke AP)
+    // Koneksi Wi-Fi (Mode Station dengan fallback ke Soft-AP)
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.println(F("[WIFI] Menghubungkan ke jaringan Wi-Fi..."));
+    Serial.print(F("[WIFI] Menghubungkan ke Wi-Fi"));
 
     unsigned long startAttemptTime = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 6000) {
-        delay(200);
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 5000) {
+        delay(250);
+        Serial.print(F("."));
         digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED));
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.print(F("[WIFI] Terhubung. IP ESP32: "));
+        Serial.println(F("\n[WIFI] Terhubung!"));
+        Serial.print(F("[WIFI] IP ESP32: http://"));
         Serial.println(WiFi.localIP());
         digitalWrite(PIN_STATUS_LED, HIGH);
     } else {
-        Serial.println(F("[WIFI] Gagal terhubung ke Station. Mengaktifkan Access Point..."));
+        Serial.println(F("\n[WIFI] Gagal terhubung ke Station. Mengaktifkan Access Point..."));
         WiFi.mode(WIFI_AP);
         WiFi.softAP(AP_SSID, AP_PASSWORD);
-        Serial.print(F("[WIFI] AP Aktif. IP: "));
+        Serial.print(F("[WIFI] AP Aktif. IP: http://"));
         Serial.println(WiFi.softAPIP());
     }
 
-    // Inisialisasi WebSocket Server
-    webSocket.begin();
-    webSocket.onEvent(webSocketEvent);
+    // Web Server HTTP Routes (PROGMEM Offline-Resilient Portal)
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send_P(200, "text/html", MAIN_page);
+    });
 
-    Serial.println(F("[SYSTEM] ESP32 Galileo Controller 4-Servo Siap (UART & WebSocket)."));
+    // WebSocket Handlers (/ws dan /)
+    ws.onEvent(onWsEvent);
+    wsRoot.onEvent(onWsEvent);
+    server.addHandler(&ws);
+    server.addHandler(&wsRoot);
+
+    server.begin();
+    Serial.println(F("[HTTP] Asynchronous Web Server & WebSocket Aktif Port 80"));
+    Serial.println(F("[SYSTEM] ESP32 Galileo Controller Siap (UART & WebSocket)."));
 }
 
+// ================= LOOP =================
 void loop() {
-    webSocket.loop();
+    ws.cleanupClients();
+    wsRoot.cleanupClients();
 
-    // 1. Baca Perintah Serial UART
+    // Update state machine aktuator non-blocking (Servo 1 smooth sweep & timers)
+    actuators.update();
+
+    // Baca perintah Serial UART (Prioritas latensi rendah PC)
     if (Serial.available()) {
         String input = Serial.readStringUntil('\n');
         input.trim();
         if (input.length() > 0) {
-            handleCommand(input);
-        }
-    }
-
-    // 2. Interpolasi Sudut Servo 1 (Gerak Lambat & Halus Non-blocking)
-    updateCarouselSmoothMotion();
-
-    // 3. Auto-return Timer untuk Servo 2 & 3
-    updateStagingTimers();
-}
-
-void setupServos() {
-    ESP32PWM::allocateTimer(0);
-    ESP32PWM::allocateTimer(1);
-    ESP32PWM::allocateTimer(2);
-    ESP32PWM::allocateTimer(3);
-
-    servoCarousel.setPeriodHertz(50);
-    servoDropper.setPeriodHertz(50);
-    servoBall.setPeriodHertz(50);
-    servoBucket.setPeriodHertz(50);
-
-    servoCarousel.attach(PIN_SERVO_FEATHER_CAROUSEL, 500, 2400);
-    servoDropper.attach(PIN_SERVO_FEATHER_DROPPER, 500, 2400);
-    servoBall.attach(PIN_SERVO_BALL_DISPENSER, 500, 2400);
-    servoBucket.attach(PIN_SERVO_BUCKET_RELEASE, 500, 2400);
-
-    resetAllServos();
-    currentCarouselAngle = SERVO1_MIN_ANGLE;
-    targetCarouselAngle = SERVO1_MIN_ANGLE;
-    currentFeatherIndex = 0;
-    servoCarousel.write(currentCarouselAngle);
-}
-
-void updateCarouselSmoothMotion() {
-    if (currentCarouselAngle != targetCarouselAngle) {
-        if (millis() - lastCarouselStepTime >= SERVO1_STEP_INTERVAL_MS) {
-            if (currentCarouselAngle < targetCarouselAngle) {
-                currentCarouselAngle++;
-            } else if (currentCarouselAngle > targetCarouselAngle) {
-                currentCarouselAngle--;
-            }
-            servoCarousel.write(currentCarouselAngle);
-            lastCarouselStepTime = millis();
+            handleCommand(input, nullptr);
         }
     }
 }
 
-void updateStagingTimers() {
-    // Servo 2 kembali ke posisi siaga 0 deg setelah memukul/menjatuhkan bulu
-    if (pendingReturnDropper && (millis() - dropperTriggerTime >= SERVO2_STRIKE_HOLD_MS)) {
-        servoDropper.write(SERVO2_HOLD_ANGLE);
-        pendingReturnDropper = false;
-
-        StaticJsonDocument<128> doc;
-        doc["status"] = "STAGING_READY";
-        doc["target"] = "FEATHER_DROPPER";
-        doc["feather_index"] = currentFeatherIndex;
-        doc["angle"] = currentCarouselAngle;
-        sendResponse(doc);
-    }
-
-    // Servo 3 kembali ke posisi siaga 0 deg setelah menjatuhkan 1 bola
-    if (pendingReturnBall && (millis() - ballTriggerTime >= SERVO3_DISPENSE_HOLD_MS)) {
-        servoBall.write(SERVO3_HOLD_TAKE_ANGLE);
-        pendingReturnBall = false;
-
-        StaticJsonDocument<128> doc;
-        doc["status"] = "STAGING_READY";
-        doc["target"] = "BALL_DISPENSER";
-        sendResponse(doc);
-    }
-}
-
-void stageFeather() {
-    // 1. Gerakkan Servo 2 cepat ke 180 deg untuk menjatuhkan bulu yang berada di slot aktif ke bucket
-    servoDropper.write(SERVO2_DROP_ANGLE);
-    dropperTriggerTime = millis();
-    pendingReturnDropper = true;
-
-    // Respon konfirmasi instan
-    StaticJsonDocument<192> doc;
-    doc["event"] = "STAGED";
-    doc["target"] = "FEATHER";
-    doc["feather_slot"] = currentFeatherIndex + 1;
-    doc["slot_angle"] = currentCarouselAngle;
-    doc["millis"] = millis();
-    sendResponse(doc);
-
-    // 2. Majukan Carousel Servo 1 ke bulu berikutnya secara lambat dan otomatis
-    if (currentFeatherIndex < 10) {
-        currentFeatherIndex++;
-        targetCarouselAngle = currentFeatherIndex * SERVO1_STEP_DEG;
-        if (targetCarouselAngle > SERVO1_MAX_ANGLE) {
-            targetCarouselAngle = SERVO1_MAX_ANGLE;
-        }
-    }
-}
-
-void stageBall() {
-    // Gerakkan Servo 3 dari 0 deg ke 90 deg untuk menggelontorkan 1 bola ke bucket
-    servoBall.write(SERVO3_DROP_ANGLE);
-    ballTriggerTime = millis();
-    pendingReturnBall = true;
-
-    StaticJsonDocument<128> doc;
-    doc["event"] = "STAGED";
-    doc["target"] = "BALL";
-    doc["millis"] = millis();
-    sendResponse(doc);
-}
-
-void releaseBucketSimultaneous() {
-    // Servo 4: Buka pintu bucket cepat ke 90 deg
-    uint32_t t_drop_micros = micros();
-    servoBucket.write(SERVO4_OPEN_RELEASE_ANGLE);
-    bucketIsOpen = true;
-
-    StaticJsonDocument<256> doc;
-    doc["event"] = "RELEASED";
-    doc["target"] = "BOTH";
-    doc["t_drop_micros"] = t_drop_micros;
-    doc["millis"] = millis();
-    sendResponse(doc);
-}
-
-void resetAllServos() {
-    // Tutup bucket penampung & kembalikan penjatuh ke posisi hold
-    servoBucket.write(SERVO4_CLOSE_HOLD_ANGLE);
-    servoDropper.write(SERVO2_HOLD_ANGLE);
-    servoBall.write(SERVO3_HOLD_TAKE_ANGLE);
-    bucketIsOpen = false;
-    pendingReturnDropper = false;
-    pendingReturnBall = false;
-}
-
-void resetCarousel() {
-    // Putar balik Servo 1 ke slot pertama (0 deg) secara halus
-    currentFeatherIndex = 0;
-    targetCarouselAngle = SERVO1_MIN_ANGLE;
-}
-
-void sendResponse(const JsonDocument& doc, uint8_t numClient) {
-    String resp;
-    serializeJson(doc, resp);
-    Serial.println(resp);
-    if (numClient < 255) {
-        webSocket.sendTXT(numClient, resp);
-    } else {
-        webSocket.broadcastTXT(resp);
-    }
-}
-
-void handleCommand(const String& jsonStr, uint8_t numClient) {
+// ================= EKSEKUSI PERINTAH & PROTOKOL JSON =================
+void handleCommand(const String& jsonStr, AsyncWebSocketClient *client) {
     StaticJsonDocument<256> doc;
     DeserializationError error = deserializeJson(doc, jsonStr);
 
@@ -254,79 +105,144 @@ void handleCommand(const String& jsonStr, uint8_t numClient) {
         StaticJsonDocument<128> errDoc;
         errDoc["status"] = "ERROR";
         errDoc["msg"] = "INVALID_JSON";
-        sendResponse(errDoc, numClient);
+        if (client) sendClientJson(client, errDoc);
+        else {
+            String r; serializeJson(errDoc, r); Serial.println(r);
+        }
         return;
     }
 
     const char* cmd = doc["cmd"];
     if (!cmd) return;
 
+    // 1. Muat Bulu (Servo 2 ketuk cepat, Servo 1 majukan slot carousel)
     if (strcmp(cmd, "DROP_FEATHER") == 0 || strcmp(cmd, "STAGE_FEATHER") == 0) {
-        stageFeather();
-    } else if (strcmp(cmd, "DROP_BALL") == 0 || strcmp(cmd, "STAGE_BALL") == 0) {
-        stageBall();
-    } else if (strcmp(cmd, "DROP_BOTH") == 0) {
-        releaseBucketSimultaneous();
-    } else if (strcmp(cmd, "RESET") == 0) {
-        resetAllServos();
-        StaticJsonDocument<128> rDoc;
-        rDoc["status"] = "MANUAL_RESET_OK";
-        rDoc["bucket"] = "CLOSED";
-        sendResponse(rDoc, numClient);
-    } else if (strcmp(cmd, "RESET_CAROUSEL") == 0) {
-        resetCarousel();
-        StaticJsonDocument<128> cDoc;
-        cDoc["status"] = "CAROUSEL_RESET";
-        cDoc["target_slot"] = 1;
-        cDoc["target_angle"] = 0;
-        sendResponse(cDoc, numClient);
-    } else if (strcmp(cmd, "STEP_CAROUSEL") == 0) {
-        if (currentFeatherIndex < 10) {
-            currentFeatherIndex++;
-            targetCarouselAngle = currentFeatherIndex * SERVO1_STEP_DEG;
-            if (targetCarouselAngle > SERVO1_MAX_ANGLE) targetCarouselAngle = SERVO1_MAX_ANGLE;
-        }
-        StaticJsonDocument<128> sDoc;
-        sDoc["status"] = "CAROUSEL_STEP";
-        sDoc["feather_slot"] = currentFeatherIndex + 1;
-        sDoc["target_angle"] = targetCarouselAngle;
-        sendResponse(sDoc, numClient);
-    } else if (strcmp(cmd, "SET_CAROUSEL") == 0) {
+        int slot = 0, angle = 0;
+        actuators.stageFeather(slot, angle);
+
+        StaticJsonDocument<192> respDoc;
+        respDoc["event"] = "STAGED";
+        respDoc["target"] = "FEATHER";
+        respDoc["feather_slot"] = slot;
+        respDoc["slot_angle"] = angle;
+        respDoc["millis"] = millis();
+        broadcastJson(respDoc);
+    }
+    // 2. Muat Bola Besi (Servo 3 gelontorkan 1 bola ke bucket)
+    else if (strcmp(cmd, "DROP_BALL") == 0 || strcmp(cmd, "STAGE_BALL") == 0) {
+        actuators.stageBall();
+
+        StaticJsonDocument<128> respDoc;
+        respDoc["event"] = "STAGED";
+        respDoc["target"] = "BALL";
+        respDoc["millis"] = millis();
+        broadcastJson(respDoc);
+    }
+    // 3. Buka Bucket (Servo 4 buka cepat 90 deg - Jatuh Bebas Simultan)
+    else if (strcmp(cmd, "DROP_BOTH") == 0) {
+        uint32_t t_drop_micros = actuators.releaseBucket();
+
+        StaticJsonDocument<256> respDoc;
+        respDoc["event"] = "RELEASED";
+        respDoc["target"] = "BOTH";
+        respDoc["t_drop_micros"] = t_drop_micros;
+        respDoc["millis"] = millis();
+        broadcastJson(respDoc);
+    }
+    // 4. Reset Posisi Aktuator (Servo 4 tutup ke 0 deg)
+    else if (strcmp(cmd, "RESET") == 0) {
+        actuators.resetAll();
+
+        StaticJsonDocument<128> respDoc;
+        respDoc["status"] = "MANUAL_RESET_OK";
+        respDoc["bucket"] = "CLOSED";
+        broadcastJson(respDoc);
+    }
+    // 5. Reset Carousel Bulu ke Slot 1 (0 deg)
+    else if (strcmp(cmd, "RESET_CAROUSEL") == 0) {
+        actuators.resetCarousel();
+
+        StaticJsonDocument<128> respDoc;
+        respDoc["status"] = "CAROUSEL_RESET";
+        respDoc["target_slot"] = 1;
+        respDoc["target_angle"] = 0;
+        broadcastJson(respDoc);
+    }
+    // 6. Langkah Manual Carousel (+18 deg)
+    else if (strcmp(cmd, "STEP_CAROUSEL") == 0) {
+        actuators.stepCarousel();
+
+        StaticJsonDocument<128> respDoc;
+        respDoc["status"] = "CAROUSEL_STEP";
+        respDoc["feather_slot"] = actuators.getFeatherIndex() + 1;
+        respDoc["target_angle"] = actuators.getCarouselAngle();
+        broadcastJson(respDoc);
+    }
+    // 7. Set Slot Spesifik Carousel
+    else if (strcmp(cmd, "SET_CAROUSEL") == 0) {
         int idx = doc["index"] | 0;
-        if (idx < 0) idx = 0;
-        if (idx > 10) idx = 10;
-        currentFeatherIndex = idx;
-        targetCarouselAngle = currentFeatherIndex * SERVO1_STEP_DEG;
-        StaticJsonDocument<128> setDoc;
-        setDoc["status"] = "CAROUSEL_SET";
-        setDoc["feather_slot"] = currentFeatherIndex + 1;
-        setDoc["target_angle"] = targetCarouselAngle;
-        sendResponse(setDoc, numClient);
-    } else if (strcmp(cmd, "PING") == 0) {
-        StaticJsonDocument<192> pDoc;
-        pDoc["status"] = "PONG";
-        pDoc["uptime_ms"] = millis();
-        pDoc["feather_slot"] = currentFeatherIndex + 1;
-        pDoc["carousel_angle"] = currentCarouselAngle;
-        pDoc["bucket_open"] = bucketIsOpen;
-        sendResponse(pDoc, numClient);
+        actuators.setCarouselIndex(idx);
+
+        StaticJsonDocument<128> respDoc;
+        respDoc["status"] = "CAROUSEL_SET";
+        respDoc["feather_slot"] = actuators.getFeatherIndex() + 1;
+        respDoc["target_angle"] = actuators.getCarouselAngle();
+        broadcastJson(respDoc);
+    }
+    // 8. Heartbeat PING
+    else if (strcmp(cmd, "PING") == 0) {
+        StaticJsonDocument<192> respDoc;
+        respDoc["status"] = "PONG";
+        respDoc["uptime_ms"] = millis();
+        respDoc["feather_slot"] = actuators.getFeatherIndex() + 1;
+        respDoc["carousel_angle"] = actuators.getCarouselAngle();
+        respDoc["bucket_open"] = actuators.isBucketOpen();
+        if (client) sendClientJson(client, respDoc);
+        else {
+            String r; serializeJson(respDoc, r); Serial.println(r);
+        }
     }
 }
 
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+// ================= BROADCAST & TRANSMISI DATA =================
+void broadcastJson(const JsonDocument& doc) {
+    String output;
+    serializeJson(doc, output);
+    Serial.println(output);
+    ws.textAll(output);
+    wsRoot.textAll(output);
+}
+
+void sendClientJson(AsyncWebSocketClient *client, const JsonDocument& doc) {
+    if (client && client->status() == WS_CONNECTED) {
+        String output;
+        serializeJson(doc, output);
+        client->text(output);
+    }
+}
+
+// ================= WEBSOCKET EVENT LISTENERS =================
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
+               AwsEventType type, void *arg, uint8_t *data, size_t len) {
     switch (type) {
-        case WStype_DISCONNECTED:
-            Serial.printf("[WS] Client #%u Disconnected\n", num);
+        case WS_EVT_CONNECT:
+            Serial.printf("[WS] Klien #%u terhubung dari %s\n", client->id(), client->remoteIP().toString().c_str());
             break;
-        case WStype_CONNECTED:
-            Serial.printf("[WS] Client #%u Connected\n", num);
+        case WS_EVT_DISCONNECT:
+            Serial.printf("[WS] Klien #%u terputus\n", client->id());
             break;
-        case WStype_TEXT: {
-            String text = String((char*)payload);
-            handleCommand(text, num);
+        case WS_EVT_DATA:
+            handleWsMessage(arg, data, len, client);
             break;
-        }
         default:
             break;
+    }
+}
+
+void handleWsMessage(void *arg, uint8_t *data, size_t len, AsyncWebSocketClient *client) {
+    AwsFrameInfo *info = (AwsFrameInfo*)arg;
+    if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+        data[len] = 0;
+        handleCommand(String((char*)data), client);
     }
 }

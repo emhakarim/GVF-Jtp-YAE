@@ -99,9 +99,9 @@ class CommManager(QObject):
             time.sleep(0.002)
 
     # ================= KONEKSI WI-FI WEBSOCKET =================
-    def connect_wifi(self, esp_ip: str, port: int = 81):
+    def connect_wifi(self, esp_ip: str, port: int = 80):
         """Membuka koneksi WebSocket ke ESP32."""
-        ws_url = f"ws://{esp_ip}:{port}/"
+        ws_url = f"ws://{esp_ip}:{port}/ws"
         self.log_message.emit(f"[WIFI] Menghubungkan ke {ws_url}...")
         
         # Threaded WebSocket client connection
