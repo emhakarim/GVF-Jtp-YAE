@@ -166,6 +166,17 @@ detector.arrival_callback = on_arrival
 detector.motion_callback = on_motion
 detector.slowmo_callback = on_replay_ready
 
+comm.carousel_status.connect(lambda slot, angle: broadcast_json({
+    "type": "CAROUSEL_STATUS",
+    "slot": slot,
+    "angle": angle
+}))
+comm.staged_confirmed.connect(lambda target, data: broadcast_json({
+    "type": "STAGED_CONFIRMED",
+    "target": target,
+    "data": data
+}))
+
 
 
 
@@ -288,6 +299,10 @@ async def websocket_endpoint(ws: WebSocket):
                 detector.reset()
                 comm.reset_servos()
                 await ws.send_text(json.dumps({"type": "STATUS_LOG", "msg": "Aktuator & Detektor direset"}))
+
+            elif cmd == "RESET_CAROUSEL":
+                comm.reset_carousel()
+                await ws.send_text(json.dumps({"type": "STATUS_LOG", "msg": "Carousel stok bulu (Servo 1) direset ke slot 1 (0°)"}))
 
             elif cmd == "CONNECT_SERIAL":
                 port = data.get("port")

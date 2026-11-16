@@ -62,6 +62,7 @@ class GalileoControllerApp:
         # 3. Comm Manager Signals
         self.comm.connection_status.connect(self._on_comm_status)
         self.comm.release_confirmed.connect(self._on_release_confirmed)
+        self.comm.carousel_status.connect(self._on_carousel_status)
         self.comm.log_message.connect(self.window.append_log)
 
         # 4. Camera Switch Actions
@@ -74,6 +75,7 @@ class GalileoControllerApp:
 
         self.window.btn_drop_feather.clicked.connect(self._stage_feather)
         self.window.btn_drop_ball.clicked.connect(self._stage_ball)
+        self.window.btn_reset_carousel.clicked.connect(self._reset_feather_carousel)
         self.window.btn_drop_both.clicked.connect(self._execute_bucket_drop)
         self.window.btn_reset.clicked.connect(self._execute_reset)
 
@@ -152,21 +154,31 @@ class GalileoControllerApp:
         self.window.val_dt.setText(f"{elapsed_ms:.1f}")
 
     def _stage_feather(self):
-        """Tahap 1A: Memuat bulu ke dalam bucket penampung (Kamera & Stopwatch TIDAK aktif)."""
+        """Tahap 1A: Memuat bulu ke dalam bucket via Servo 2 dan memajukan carousel Servo 1."""
         self.comm.trigger_drop_feather()
         self.window.lbl_status_feather.setText("Bulu: Siap di Bucket [OK]")
         self.window.lbl_status_feather.setStyleSheet("font-size: 10px; font-weight: 700; color: #16a34a;")
-        self.window.append_log("[STAGING] Servo 1 melepas bulu ke dalam wadah penampung.")
+        self.window.append_log("[STAGING] Servo 2 mengetuk bulu ke bucket, Servo 1 memajukan slot.")
 
     def _stage_ball(self):
-        """Tahap 1B: Memuat bola besi ke dalam bucket penampung (Kamera & Stopwatch TIDAK aktif)."""
+        """Tahap 1B: Memuat bola besi ke dalam bucket penampung via Servo 3."""
         self.comm.trigger_drop_ball()
         self.window.lbl_status_ball.setText("Bola: Siap di Bucket [OK]")
         self.window.lbl_status_ball.setStyleSheet("font-size: 10px; font-weight: 700; color: #16a34a;")
-        self.window.append_log("[STAGING] Servo 2 melepas bola besi ke dalam wadah penampung.")
+        self.window.append_log("[STAGING] Servo 3 menggelontorkan 1 bola besi ke dalam wadah penampung.")
+
+    def _reset_feather_carousel(self):
+        """Mereset carousel stok bulu (Servo 1) kembali ke slot 1 (0 derajat)."""
+        self.comm.reset_carousel()
+        self.window.lbl_carousel_stock.setText("Carousel Bulu: Slot 1 / 10 (0°)")
+        self.window.append_log("[CAROUSEL] Perintah reset carousel ke slot 1 (0°) dikirim.")
+
+    @Slot(int, int)
+    def _on_carousel_status(self, slot: int, angle: int):
+        self.window.lbl_carousel_stock.setText(f"Carousel Bulu: Slot {slot} / 10 ({angle}°)")
 
     def _execute_bucket_drop(self):
-        """Tahap 2: Buka bucket penampung - Kedua objek jatuh bersamaan (Kamera & Stopwatch AKTIF)."""
+        """Tahap 2: Buka bucket penampung via Servo 4 - Kedua objek jatuh bersamaan (Kamera & Stopwatch AKTIF)."""
         self.is_inspecting_replay = False
         self.current_mode = "BOTH"
         self.current_t_trigger = time.perf_counter()
@@ -177,19 +189,19 @@ class GalileoControllerApp:
         self.window.val_dev.setText("---")
         self.stopwatch_timer.start(10)  # Refresh tiap 10 ms
 
-        # Aktifkan detektor scene kamera 100 FPS
+        # Aktifkan detektor scene kamera 120 FPS
         self.detector.arm_detection(target_mode="BOTH", t_trigger=self.current_t_trigger)
 
-        # Buka pintu bucket penampung via ESP32 (Servo 3)
+        # Buka pintu bucket penampung via ESP32 (Servo 4)
         self.comm.trigger_drop_both()
 
         if self.camera.is_mock:
             self.camera.trigger_mock_drop("BOTH")
 
-        self.window.append_log("[EKSPERIMEN] Pintu bucket terbuka! Stopwatch & Detektor 100 FPS AKTIF.")
+        self.window.append_log("[EKSPERIMEN] Pintu bucket (Servo 4) terbuka! Stopwatch & Detektor 120 FPS AKTIF.")
 
     def _execute_reset(self):
-        """Tahap 3: Mereset ketiga servo ke posisi penahan (Standby)."""
+        """Tahap 3: Mereset pintu bucket (Servo 4) & servo penjatuh ke posisi penahan (Standby)."""
         self.is_inspecting_replay = False
         self.stopwatch_timer.stop()
         self.detector.reset()
@@ -205,7 +217,7 @@ class GalileoControllerApp:
         self.window.lbl_status_ball.setStyleSheet("font-size: 10px; font-weight: 700; color: #94a3b8;")
         self.window.replay_lbl.setText("Standby (0 Frame)")
         self.window.lbl_frame_time.setText("LIVE")
-        self.window.append_log("[RESET] Semua servo kembali ke posisi penahan (Standby).")
+        self.window.append_log("[RESET] Pintu bucket ditutup (Servo 4 = 0°), aktuator siap.")
 
     @Slot(np.ndarray)
     def _on_display_frame(self, annotated_frame: np.ndarray):

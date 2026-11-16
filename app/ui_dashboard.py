@@ -560,15 +560,15 @@ class DashboardWindow(QMainWindow):
         act_layout.setContentsMargins(12, 10, 12, 10)
         act_layout.setSpacing(8)
 
-        l_act_title = QLabel("KENDALI PELEPASAN DUA TAHAP (3 SERVO)")
+        l_act_title = QLabel("KENDALI PELEPASAN DUA TAHAP (4 SERVO)")
         l_act_title.setStyleSheet("font-size: 11px; font-weight: 800; color: #475569; letter-spacing: 0.5px;")
         act_layout.addWidget(l_act_title)
 
         # Tahap 1: Pengisian Wadah Penampung (Staging)
         indiv_row = QHBoxLayout()
-        self.btn_drop_feather = QPushButton("1. Muat Bulu (Servo 1)")
+        self.btn_drop_feather = QPushButton("1. Muat Bulu (Servo 1 & 2)")
         self.btn_drop_feather.setObjectName("btnDropFeather")
-        self.btn_drop_ball = QPushButton("2. Muat Bola (Servo 2)")
+        self.btn_drop_ball = QPushButton("2. Muat Bola (Servo 3)")
         self.btn_drop_ball.setObjectName("btnDropBall")
         indiv_row.addWidget(self.btn_drop_feather)
         indiv_row.addWidget(self.btn_drop_ball)
@@ -584,13 +584,24 @@ class DashboardWindow(QMainWindow):
         status_staging.addWidget(self.lbl_status_ball)
         act_layout.addLayout(status_staging)
 
-        # Tahap 2: Buka Bucket Penampung (Jatuh Bebas Simultan)
-        self.btn_drop_both = QPushButton("🚀 3. BUKA BUCKET (JATUH BEBAS SIMULTAN)")
+        # Baris Indikator Carousel Stok Bulu
+        carousel_row = QHBoxLayout()
+        self.lbl_carousel_stock = QLabel("Carousel Bulu: Slot 1 / 10 (0°)")
+        self.lbl_carousel_stock.setStyleSheet("font-size: 10px; font-weight: 700; color: #0284c7; font-family: monospace;")
+        self.btn_reset_carousel = QPushButton("Reset Slot (0°)")
+        self.btn_reset_carousel.setStyleSheet("font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background-color: #f1f5f9; border: 1px solid #cbd5e1; color: #334155;")
+        carousel_row.addWidget(self.lbl_carousel_stock)
+        carousel_row.addStretch()
+        carousel_row.addWidget(self.btn_reset_carousel)
+        act_layout.addLayout(carousel_row)
+
+        # Tahap 2: Buka Bucket Penampung (Jatuh Bebas Simultan - Servo 4)
+        self.btn_drop_both = QPushButton("🚀 3. BUKA BUCKET (JATUH BEBAS SIMULTAN - SERVO 4)")
         self.btn_drop_both.setObjectName("btnDropBoth")
         act_layout.addWidget(self.btn_drop_both)
 
         # Tahap 3: Reset
-        self.btn_reset = QPushButton("Reset Posisi Aktuator (Standby)")
+        self.btn_reset = QPushButton("Reset Pintu Bucket (Standby)")
         self.btn_reset.setObjectName("btnReset")
         act_layout.addWidget(self.btn_reset)
         right_layout.addWidget(p_act)

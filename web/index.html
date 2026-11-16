@@ -418,26 +418,31 @@
             </div>
         </div>
 
-        <!-- Kolom Kanan: Kontrol Aktuator (3 Servo) & Telemetri Sains -->
+        <!-- Kolom Kanan: Kontrol Aktuator (4 Servo) & Telemetri Sains -->
         <div style="display: flex; flex-direction: column; gap: 14px;">
             <div class="card">
                 <div class="card-header">
-                    <h3>Kendali Aktuator 3-Servo ESP32</h3>
+                    <h3>Kendali Aktuator 4-Servo ESP32</h3>
                     <span style="font-size: 11px; color: var(--text-muted);">UART 115200 / Wi-Fi</span>
                 </div>
 
             <!-- Tombol Aktuator -->
             <div class="control-panel">
                 <button class="hero-btn" id="btnDropBoth">
-                    LEPAS SIMULTAN: BULU + BOLA BESI (SERVO 3)
+                    🚀 BUKA BUCKET: JATUH BEBAS SIMULTAN (SERVO 4)
                 </button>
 
                 <div class="btn-dual-row">
-                    <button class="btn-secondary" id="btnDropFeather">Lepas Bulu Saja (Servo 1)</button>
-                    <button class="btn-secondary" id="btnDropBall">Lepas Bola Saja (Servo 2)</button>
+                    <button class="btn-secondary" id="btnDropFeather">1. Muat Bulu (Servo 1 & 2)</button>
+                    <button class="btn-secondary" id="btnDropBall">2. Muat Bola (Servo 3)</button>
                 </div>
 
-                <button class="btn-reset" id="btnReset">Reset Aktuator ke Posisi Hold (Standby)</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 11px;">
+                    <span id="txtCarouselStatus" style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent-blue);">Carousel Bulu: Slot 1 / 10 (0°)</span>
+                    <button class="btn-secondary" id="btnResetCarousel" style="padding: 2px 8px; font-size: 10px;">Reset Slot (0°)</button>
+                </div>
+
+                <button class="btn-reset" id="btnReset">Reset Pintu Bucket (Standby)</button>
             </div>
 
             <!-- Kartu Telemetri Kinematika & Gravitasi -->
@@ -588,6 +593,10 @@
                 log(`Menerima buffer slow-motion: ${data.total_frames} frame.`);
                 fetchReplayFrames();
             }
+            else if (data.type === 'CAROUSEL_STATUS') {
+                const el = document.getElementById('txtCarouselStatus');
+                if (el) el.textContent = `Carousel Bulu: Slot ${data.slot} / 10 (${data.angle}°)`;
+            }
             else if (data.type === 'STATUS_LOG') {
                 log(data.msg);
             }
@@ -700,23 +709,26 @@
             switchToLiveFeed();
         });
 
-        // Kontrol Tombol Aktuator 3-Servo
+        // Kontrol Tombol Aktuator 4-Servo
         document.getElementById('btnDropBoth').addEventListener('click', () => {
             startLiveStopwatch();
             socket.send(JSON.stringify({ cmd: 'DROP_BOTH' }));
-            log("Trigger: Drop SIMULTAN (Bulu + Bola Besi) dikirim. Stopwatch aktif...");
+            log("Trigger: Buka Bucket (Servo 4 - Drop Simultan) dikirim. Stopwatch aktif...");
         });
 
         document.getElementById('btnDropFeather').addEventListener('click', () => {
-            startLiveStopwatch();
             socket.send(JSON.stringify({ cmd: 'DROP_FEATHER' }));
-            log("Trigger: Drop BULU dikirim. Stopwatch aktif...");
+            log("Staging: Pemuatan BULU (Servo 1 & 2) dikirim ke ESP32...");
         });
 
         document.getElementById('btnDropBall').addEventListener('click', () => {
-            startLiveStopwatch();
             socket.send(JSON.stringify({ cmd: 'DROP_BALL' }));
-            log("Trigger: Drop BOLA BESI dikirim. Stopwatch aktif...");
+            log("Staging: Pemuatan BOLA BESI (Servo 3) dikirim ke ESP32...");
+        });
+
+        document.getElementById('btnResetCarousel').addEventListener('click', () => {
+            socket.send(JSON.stringify({ cmd: 'RESET_CAROUSEL' }));
+            log("Perintah Reset Carousel ke slot 1 (0°) dikirim.");
         });
 
         document.getElementById('btnReset').addEventListener('click', () => {

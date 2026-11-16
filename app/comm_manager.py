@@ -28,6 +28,8 @@ class CommManager(QObject):
     # Sinyal status komunikasi
     connection_status = Signal(str, bool, str)   # (protocol, is_connected, message)
     release_confirmed = Signal(str, int, float)  # (target, t_esp_micros, pc_timestamp)
+    staged_confirmed = Signal(str, dict)         # (target, payload_data)
+    carousel_status = Signal(int, int)           # (feather_slot, angle)
     log_message = Signal(str)
 
     def __init__(self, parent=None):
@@ -174,27 +176,37 @@ class CommManager(QObject):
         return sent
 
     def trigger_drop_feather(self):
-        """Servo 1: Lepas bulu."""
+        """Servo 1 & 2: Jatuhkan bulu aktif ke bucket & majukan carousel."""
         t_pc = time.perf_counter()
         if self.send_command({"cmd": "DROP_FEATHER", "t_pc": t_pc}):
-            self.log_message.emit("[COMMAND] Pelepasan BULU diinstruksikan.")
+            self.log_message.emit("[COMMAND] Pemuatan BULU (Servo 1 & 2) diinstruksikan.")
 
     def trigger_drop_ball(self):
-        """Servo 2: Lepas bola besi."""
+        """Servo 3: Ambil & jatuhkan 1 bola besi ke bucket."""
         t_pc = time.perf_counter()
         if self.send_command({"cmd": "DROP_BALL", "t_pc": t_pc}):
-            self.log_message.emit("[COMMAND] Pelepasan BOLA BESI diinstruksikan.")
+            self.log_message.emit("[COMMAND] Pemuatan BOLA BESI (Servo 3) diinstruksikan.")
 
     def trigger_drop_both(self):
-        """Servo 3: Lepas keduanya secara simultan."""
+        """Servo 4: Buka pintu bucket penampung secara cepat (Jatuh Bebas Simultan)."""
         t_pc = time.perf_counter()
         if self.send_command({"cmd": "DROP_BOTH", "t_pc": t_pc}):
-            self.log_message.emit("[COMMAND] Pelepasan SIMULTAN (Bulu & Bola) diinstruksikan.")
+            self.log_message.emit("[COMMAND] BUKA BUCKET (Servo 4 - Drop Simultan) diinstruksikan.")
 
     def reset_servos(self):
-        """Reset semua posisi servo ke hold."""
+        """Reset posisi pintu bucket (Servo 4) & servo penjatuh ke posisi hold."""
         if self.send_command({"cmd": "RESET"}):
-            self.log_message.emit("[COMMAND] Reset posisi servo.")
+            self.log_message.emit("[COMMAND] Reset pintu bucket & aktuator ke Standby.")
+
+    def reset_carousel(self):
+        """Reset carousel stok bulu (Servo 1) kembali ke slot pertama (0 derajat)."""
+        if self.send_command({"cmd": "RESET_CAROUSEL"}):
+            self.log_message.emit("[COMMAND] Reset carousel bulu ke slot 1 (0°).")
+
+    def step_carousel(self):
+        """Majukan carousel stok bulu (Servo 1) 1 slot (+18 derajat)."""
+        if self.send_command({"cmd": "STEP_CAROUSEL"}):
+            self.log_message.emit("[COMMAND] Memajukan carousel bulu 1 slot (+18°).")
 
     def send_ping(self):
         """Mengirim heartbeat PING ke ESP32."""
@@ -214,8 +226,27 @@ class CommManager(QObject):
                 self.log_message.emit(f"[HARDWARE] Konfirmasi lepas {target} pada t_esp={t_micros} us")
                 return
 
+            if event == "STAGED":
+                target = data.get("target", "UNKNOWN")
+                self.staged_confirmed.emit(target, data)
+                if target == "FEATHER":
+                    slot = data.get("feather_slot", 1)
+                    angle = data.get("slot_angle", 0)
+                    self.carousel_status.emit(slot, angle)
+                    self.log_message.emit(f"[HARDWARE] Bulu slot #{slot} ({angle}°) dimuat ke bucket.")
+                elif target == "BALL":
+                    self.log_message.emit("[HARDWARE] Bola besi dimuat ke bucket.")
+                return
+
             status = data.get("status")
-            if status in ("MANUAL_RESET_OK", "SERVOS_RESET_STANDBY", "PONG", "ERROR"):
+            if status in ("CAROUSEL_RESET", "CAROUSEL_STEP", "CAROUSEL_SET"):
+                slot = data.get("feather_slot", 1)
+                angle = data.get("target_angle", 0)
+                self.carousel_status.emit(slot, angle)
+                self.log_message.emit(f"[HARDWARE] Posisi Carousel: Slot #{slot} ({angle}°)")
+                return
+
+            if status in ("MANUAL_RESET_OK", "SERVOS_RESET_STANDBY", "STAGING_READY", "PONG", "ERROR"):
                 extra = data.get("msg") or data.get("uptime_ms") or data.get("target")
                 detail = f" ({extra})" if extra is not None else ""
                 self.log_message.emit(f"[ESP32] Status: {status}{detail}")
