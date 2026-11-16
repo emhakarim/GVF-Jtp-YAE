@@ -31,6 +31,7 @@ void sendClientJson(AsyncWebSocketClient *client, const JsonDocument& doc);
 // ================= SETUP =================
 void setup() {
     Serial.begin(SERIAL_BAUD_RATE);
+    Serial.setTimeout(10); // Menghindari blocking UART jika ada fragmentasi serial byte
     pinMode(PIN_STATUS_LED, OUTPUT);
     digitalWrite(PIN_STATUS_LED, LOW);
 
