@@ -18,7 +18,7 @@
 #define SERVO_HOLD_BOTH       0
 #define SERVO_DROP_BOTH      90
 
-#define SERVO_ACTION_DELAY_MS 600 // Durasi mempertahankan posisi rilis sebelum kembali standby
+#define SERVO_STAGE_CLOSE_DELAY_MS 1500 // Durasi penutupan otomatis servo staging (1 & 2) setelah muat ke kolektor
 
 // ================= KOMUNIKASI & JARINGAN =================
 #define SERIAL_BAUD_RATE     115200

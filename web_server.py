@@ -39,9 +39,9 @@ if os.path.exists(assets_dir):
 
 # Inisialisasi Modul
 physics = PhysicsEngine(height_meters=2.0, delta_h_meters=0.002)
-detector = SceneDetector(buffer_size=120)
+detector = SceneDetector(buffer_size=150)
 comm = CommManager()
-camera = CameraWorker(camera_index=0, target_fps=100, width=640, height=480, detector=detector)
+camera = CameraWorker(camera_index=0, target_fps=120, width=640, height=480, detector=detector)
 
 # Buffer frame global & status
 latest_annotated_frame = camera.static_mock_canvas.copy()
@@ -90,7 +90,7 @@ def on_arrival(event_data: dict):
     t_arr = event_data["timestamp"]
     t_start = event_data["t_armed"]
     dt = t_arr - t_start
-    g_val, g_err = physics.calculate_gravity_from_time(dt, delta_t_err=0.010)
+    g_val, g_err = physics.calculate_gravity_from_time(dt, delta_t_err=0.0083)
     v_final = physics.theoretical_impact_velocity(g_val)
     dev = ((g_val - physics.G_STANDARD) / physics.G_STANDARD) * 100.0
 
@@ -270,25 +270,19 @@ async def websocket_endpoint(ws: WebSocket):
                 }))
 
             elif cmd == "DROP_FEATHER":
-                t_trig = time.perf_counter()
-                detector.arm_detection(target_mode="FEATHER", t_trigger=t_trig)
                 comm.trigger_drop_feather()
-                if camera.is_mock: camera.trigger_mock_drop("FEATHER")
-                await ws.send_text(json.dumps({"type": "STATUS_LOG", "msg": "Drop BULU diinstruksikan"}))
+                await ws.send_text(json.dumps({"type": "STATUS_LOG", "msg": "Staging BULU ke bucket penampung diinstruksikan"}))
 
             elif cmd == "DROP_BALL":
-                t_trig = time.perf_counter()
-                detector.arm_detection(target_mode="BALL", t_trigger=t_trig)
                 comm.trigger_drop_ball()
-                if camera.is_mock: camera.trigger_mock_drop("BALL")
-                await ws.send_text(json.dumps({"type": "STATUS_LOG", "msg": "Drop BOLA BESI diinstruksikan"}))
+                await ws.send_text(json.dumps({"type": "STATUS_LOG", "msg": "Staging BOLA BESI ke bucket penampung diinstruksikan"}))
 
             elif cmd == "DROP_BOTH":
                 t_trig = time.perf_counter()
                 detector.arm_detection(target_mode="BOTH", t_trigger=t_trig)
                 comm.trigger_drop_both()
                 if camera.is_mock: camera.trigger_mock_drop("BOTH")
-                await ws.send_text(json.dumps({"type": "STATUS_LOG", "msg": "Drop SIMULTAN (Bulu + Bola) diinstruksikan"}))
+                await ws.send_text(json.dumps({"type": "STATUS_LOG", "msg": "Buka Bucket Kolektor: Drop SIMULTAN (Bulu + Bola) aktif"}))
 
             elif cmd == "RESET":
                 detector.reset()

@@ -19,9 +19,11 @@ Servo servoBoth;
 // Server WebSocket
 WebSocketsServer webSocket = WebSocketsServer(WEBSOCKET_PORT);
 
-// State tracking
-unsigned long lastActionTime = 0;
-bool pendingReset = false;
+// State tracking (auto-close independen untuk staging Servo 1 & 2; Servo 3 latched hingga RESET)
+unsigned long featherDropTime = 0;
+unsigned long ballDropTime = 0;
+bool pendingCloseFeather = false;
+bool pendingCloseBall = false;
 
 // Forward declaration
 void setupServos();
@@ -67,6 +69,17 @@ void setup() {
     Serial.println(F("[SYSTEM] ESP32 Galileo Controller Siap Menerima Perintah (UART & WebSocket)."));
 }
 
+void publishStandbyStatus(const char* target) {
+    StaticJsonDocument<128> doc;
+    doc["status"] = "SERVOS_RESET_STANDBY";
+    doc["target"] = target;
+    doc["t_micros"] = micros();
+    String resp;
+    serializeJson(doc, resp);
+    Serial.println(resp);
+    webSocket.broadcastTXT(resp);
+}
+
 void loop() {
     webSocket.loop();
 
@@ -79,18 +92,16 @@ void loop() {
         }
     }
 
-    // Kembalikan servo ke posisi hold setelah periode pelepasan selesai
-    if (pendingReset && (millis() - lastActionTime >= SERVO_ACTION_DELAY_MS)) {
-        resetAllServos();
-        pendingReset = false;
-        
-        StaticJsonDocument<128> doc;
-        doc["status"] = "SERVOS_RESET_STANDBY";
-        doc["t_micros"] = micros();
-        String resp;
-        serializeJson(doc, resp);
-        Serial.println(resp);
-        webSocket.broadcastTXT(resp);
+    // Auto-close independen untuk servo staging (Servo 1 & 2) setelah 1500 ms; Servo 3 tetap terbuka hingga RESET
+    if (pendingCloseFeather && (millis() - featherDropTime >= SERVO_STAGE_CLOSE_DELAY_MS)) {
+        servoFeather.write(SERVO_HOLD_FEATHER);
+        pendingCloseFeather = false;
+        publishStandbyStatus("FEATHER");
+    }
+    if (pendingCloseBall && (millis() - ballDropTime >= SERVO_STAGE_CLOSE_DELAY_MS)) {
+        servoBall.write(SERVO_HOLD_BALL);
+        pendingCloseBall = false;
+        publishStandbyStatus("BALL");
     }
 }
 
@@ -122,16 +133,18 @@ void executeDrop(const char* target) {
 
     if (strcmp(target, "FEATHER") == 0) {
         servoFeather.write(SERVO_DROP_FEATHER);
+        featherDropTime = millis();
+        pendingCloseFeather = true;
     } else if (strcmp(target, "BALL") == 0) {
         servoBall.write(SERVO_DROP_BALL);
+        ballDropTime = millis();
+        pendingCloseBall = true;
     } else if (strcmp(target, "BOTH") == 0) {
+        // Bucket kolektor tetap terbuka (latched) sampai menerima perintah RESET eksplisit
         servoBoth.write(SERVO_DROP_BOTH);
     } else {
         return;
     }
-
-    lastActionTime = millis();
-    pendingReset = true;
 
     // Respon konfirmasi ke PC dengan timestamp mikrosekon deterministik
     StaticJsonDocument<256> doc;
@@ -172,7 +185,8 @@ void handleCommand(const String& jsonStr, uint8_t numClient) {
         executeDrop("BOTH");
     } else if (strcmp(cmd, "RESET") == 0) {
         resetAllServos();
-        pendingReset = false;
+        pendingCloseFeather = false;
+        pendingCloseBall = false;
         StaticJsonDocument<128> rDoc;
         rDoc["status"] = "MANUAL_RESET_OK";
         String rResp;

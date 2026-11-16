@@ -129,6 +129,11 @@ class CommManager(QObject):
         self.is_wifi_connected = False
         self.connection_status.emit("WIFI", False, "Terputus.")
 
+    def disconnect(self):
+        """Memutus semua koneksi aktif (Serial UART & Wi-Fi WebSocket) secara aman."""
+        self.disconnect_serial()
+        self.disconnect_wifi()
+
     def _on_ws_open(self, ws):
         self.is_wifi_connected = True
         self.connection_status.emit("WIFI", True, "WebSocket Terhubung.")
@@ -191,6 +196,11 @@ class CommManager(QObject):
         if self.send_command({"cmd": "RESET"}):
             self.log_message.emit("[COMMAND] Reset posisi servo.")
 
+    def send_ping(self):
+        """Mengirim heartbeat PING ke ESP32."""
+        if self.send_command({"cmd": "PING"}):
+            self.log_message.emit("[COMMAND] Mengirim PING ke ESP32.")
+
     # ================= PARSING RESPON HARDWARE =================
     def _parse_incoming_payload(self, text: str):
         try:
@@ -202,6 +212,13 @@ class CommManager(QObject):
                 pc_now = time.perf_counter()
                 self.release_confirmed.emit(target, t_micros, pc_now)
                 self.log_message.emit(f"[HARDWARE] Konfirmasi lepas {target} pada t_esp={t_micros} us")
+                return
+
+            status = data.get("status")
+            if status in ("MANUAL_RESET_OK", "SERVOS_RESET_STANDBY", "PONG", "ERROR"):
+                extra = data.get("msg") or data.get("uptime_ms") or data.get("target")
+                detail = f" ({extra})" if extra is not None else ""
+                self.log_message.emit(f"[ESP32] Status: {status}{detail}")
         except json.JSONDecodeError:
             # Mengabaikan pesan debug non-JSON dari Serial
             pass

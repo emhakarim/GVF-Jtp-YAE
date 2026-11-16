@@ -139,7 +139,16 @@ class GalileoControllerApp:
                 self.comm.connect_serial(port, 115200)
 
     def _update_live_stopwatch(self):
-        elapsed_ms = (time.perf_counter() - self.current_t_trigger) * 1000.0
+        elapsed_s = time.perf_counter() - self.current_t_trigger
+        if elapsed_s >= 5.0:
+            self.stopwatch_timer.stop()
+            self.detector.reset()
+            self.window.val_g.setText("TIMEOUT")
+            self.window.val_v.setText("0.00 m/s")
+            self.window.val_dev.setText("---")
+            self.window.append_log("[TIMEOUT] Objek tidak terdeteksi melintasi ROI dalam 5.0 detik. Sistem kembali ke Standby.")
+            return
+        elapsed_ms = elapsed_s * 1000.0
         self.window.val_dt.setText(f"{elapsed_ms:.1f}")
 
     def _stage_feather(self):
@@ -227,7 +236,9 @@ class GalileoControllerApp:
 
     @Slot(str, int, float)
     def _on_release_confirmed(self, target: str, t_esp_micros: int, pc_time: float):
-        self.current_t_trigger = pc_time
+        if target == "BOTH":
+            self.current_t_trigger = pc_time
+            self.detector.armed_timestamp = pc_time
 
     @Slot(float)
     def _on_motion_level(self, level: float):
@@ -244,8 +255,8 @@ class GalileoControllerApp:
         t_start = event_data["t_armed"]
         dt = t_arrival - t_start
 
-        # Perhitungan nilai g dan ketidakpastian fisis
-        g_val, g_err = self.physics.calculate_gravity_from_time(dt, delta_t_err=0.010)
+        # Perhitungan nilai g dan ketidakpastian fisis (resolusi 120 FPS = 8.33 ms)
+        g_val, g_err = self.physics.calculate_gravity_from_time(dt, delta_t_err=0.0083)
         v_final = self.physics.theoretical_impact_velocity(g_val)
         deviation = ((g_val - self.physics.G_STANDARD) / self.physics.G_STANDARD) * 100.0
 

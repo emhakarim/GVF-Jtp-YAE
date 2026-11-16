@@ -44,6 +44,7 @@ class SceneDetector(QObject):
         
         # Tracking data event saat drop
         self.armed_timestamp = 0.0
+        self.dead_time_sec = 0.150  # Physical blanking window 150 ms pasca rilis bucket
         self.drop_target_mode = "BOTH"  # FEATHER, BALL, BOTH
         self.recorded_events = []
         self.post_event_counter = 0
@@ -114,12 +115,12 @@ class SceneDetector(QObject):
             delta_prev = cv2.absdiff(gray_roi, self.prev_gray_roi)
             _, thresh_prev = cv2.threshold(delta_prev, 20, 255, cv2.THRESH_BINARY)
             
-            # Jika dalam mode ARMED, simpan baseline background kosong saat awal
-            if self.ref_gray_roi is None:
+            # Snapshot baseline background kosong HANYA saat memasuki mode ARMED
+            if self.state == "ARMED" and self.ref_gray_roi is None:
                 self.ref_gray_roi = gray_roi.copy()
 
             thresh_combined = thresh_prev
-            if self.ref_gray_roi is not None and self.ref_gray_roi.shape == gray_roi.shape:
+            if self.state == "ARMED" and self.ref_gray_roi is not None and self.ref_gray_roi.shape == gray_roi.shape:
                 delta_ref = cv2.absdiff(gray_roi, self.ref_gray_roi)
                 _, thresh_ref = cv2.threshold(delta_ref, 25, 255, cv2.THRESH_BINARY)
                 thresh_combined = cv2.bitwise_or(thresh_prev, thresh_ref)
@@ -154,9 +155,10 @@ class SceneDetector(QObject):
             # Trigger jika: terdeteksi target fisik valid (bola/bulu) ATAU persentase melampaui ambang batas tanpa gangguan makro
             has_valid_target = (max_blob_area >= self.min_blob_area)
             is_triggered = has_valid_target or (motion_percent >= self.motion_threshold and motion_percent <= 15.0)
+            elapsed_since_arm = timestamp - self.armed_timestamp
 
-            # Evaluasi Trigger saat sistem berstatus ARMED
-            if self.state == "ARMED" and is_triggered:
+            # Evaluasi Trigger dengan Physical Dead-Time Gate (150 ms) agar getaran rilis servo tidak memicu false trigger
+            if self.state == "ARMED" and elapsed_since_arm >= self.dead_time_sec and is_triggered:
                 # Objek terdeteksi melintasi garis pandang kamera!
                 event_data = {
                     "timestamp": timestamp,
