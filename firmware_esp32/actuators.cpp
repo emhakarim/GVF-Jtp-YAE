@@ -7,8 +7,10 @@ ActuatorSystem::ActuatorSystem()
       _currentFeatherIndex(0),
       _lastCarouselStepTime(0),
       _dropperTriggerTime(0),
+      _dropperReturnTime(0),
       _ballTriggerTime(0),
       _pendingReturnDropper(false),
+      _pendingCarouselAdvance(false),
       _pendingReturnBall(false),
       _bucketIsOpen(false) {}
 
@@ -53,9 +55,23 @@ void ActuatorSystem::update() {
     if (_pendingReturnDropper && (millis() - _dropperTriggerTime >= SERVO2_STRIKE_HOLD_MS)) {
         _servoDropper.write(SERVO2_HOLD_ANGLE);
         _pendingReturnDropper = false;
+        _dropperReturnTime = millis(); // Rekam timestamp saat mulai kembali ke posisi aman
     }
 
-    // 3. Auto-return Timer Servo 3 (Kembali ke 0 deg setelah gelontor)
+    // 3. Carousel Delay Advance: Menunggu tuas pendorong mundur tuntas ke 0 deg
+    //    (+ margin 400ms mekanik), baru carousel berputar ke slot berikutnya
+    if (_pendingCarouselAdvance && !_pendingReturnDropper && (millis() - _dropperReturnTime >= 400)) {
+        _pendingCarouselAdvance = false;
+        if (_currentFeatherIndex < 10) {
+            _currentFeatherIndex++;
+            _targetCarouselAngle = _currentFeatherIndex * SERVO1_STEP_DEG;
+            if (_targetCarouselAngle > SERVO1_MAX_ANGLE) {
+                _targetCarouselAngle = SERVO1_MAX_ANGLE;
+            }
+        }
+    }
+
+    // 4. Auto-return Timer Servo 3 (Kembali ke 0 deg setelah gelontor)
     if (_pendingReturnBall && (millis() - _ballTriggerTime >= SERVO3_DISPENSE_HOLD_MS)) {
         _servoBall.write(SERVO3_HOLD_TAKE_ANGLE);
         _pendingReturnBall = false;
@@ -68,18 +84,10 @@ bool ActuatorSystem::stageFeather(int &slotOut, int &angleOut) {
     _servoDropper.write(SERVO2_DROP_ANGLE);
     _dropperTriggerTime = millis();
     _pendingReturnDropper = true;
+    _pendingCarouselAdvance = true; // Tandai agar carousel bergerak HANYA setelah siklus pendorong selesai
 
     slotOut = _currentFeatherIndex + 1;
     angleOut = _currentCarouselAngle;
-
-    // Majukan target Servo 1 ke slot berikutnya secara otomatis & lambat
-    if (_currentFeatherIndex < 10) {
-        _currentFeatherIndex++;
-        _targetCarouselAngle = _currentFeatherIndex * SERVO1_STEP_DEG;
-        if (_targetCarouselAngle > SERVO1_MAX_ANGLE) {
-            _targetCarouselAngle = SERVO1_MAX_ANGLE;
-        }
-    }
     return true;
 }
 
@@ -108,6 +116,7 @@ void ActuatorSystem::resetAll() {
     _servoBall.write(SERVO3_HOLD_TAKE_ANGLE);
     _bucketIsOpen = false;
     _pendingReturnDropper = false;
+    _pendingCarouselAdvance = false;
     _pendingReturnBall = false;
 }
 

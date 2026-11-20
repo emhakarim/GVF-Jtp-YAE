@@ -80,8 +80,10 @@ private:
   unsigned long _lastCarouselStepTime;
 
   unsigned long _dropperTriggerTime;
+  unsigned long _dropperReturnTime;
   unsigned long _ballTriggerTime;
   bool _pendingReturnDropper;
+  bool _pendingCarouselAdvance;
   bool _pendingReturnBall;
 
   bool _bucketIsOpen;
