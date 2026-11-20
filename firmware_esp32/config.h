@@ -31,7 +31,7 @@
   750 // Waktu jeda di 90 deg sebelum kembali otomatis ke 0 deg
 
 // Servo 4: Release Bulu dan Bola (Bucket Dropper Simultan)
-#define SERVO4_CLOSE_HOLD_ANGLE 0 // 0 derajat: Tutup pintu bucket (Hold)
+#define SERVO4_CLOSE_HOLD_ANGLE 5 // 5 derajat: Tutup rapat pintu bucket & hening (bebas stall)
 #define SERVO4_OPEN_RELEASE_ANGLE                                              \
   90 // 90 derajat: Buka pintu bucket cepat (Simultaneous Drop)
 
