@@ -42,27 +42,30 @@ class UpdateWorker(QThread):
                 self.update_finished.emit(False, f"Gagal update: {e}")
 
     def _get_local_commit(self) -> str:
-        # 1. Coba baca version.json
-        if os.path.exists(self.version_file):
-            try:
-                with open(self.version_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return data.get("commit", "")[:7]
-            except Exception:
-                pass
-
-        # 2. Fallback baca git rev-parse jika ada git
+        # 1. Prioritaskan git rev-parse jika folder merupakan git repository
         if shutil.which("git") and os.path.exists(os.path.join(self.project_dir, ".git")):
             try:
                 res = subprocess.run(
                     ["git", "rev-parse", "HEAD"],
                     cwd=self.project_dir,
                     stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=5
+                    timeout=3
                 )
-                if res.returncode == 0:
+                if res.returncode == 0 and res.stdout.strip():
                     return res.stdout.strip()[:7]
+            except Exception:
+                pass
+
+        # 2. Fallback baca version.json jika bukan git repo (misal instalasi manual dari ZIP)
+        if os.path.exists(self.version_file):
+            try:
+                with open(self.version_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    c = data.get("commit", "")
+                    if c and c != "HEAD":
+                        return c[:7]
             except Exception:
                 pass
         return "UNKNOWN"
