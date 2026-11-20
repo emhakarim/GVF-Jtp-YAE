@@ -14,29 +14,17 @@ ActuatorSystem::ActuatorSystem()
 
 // ================= INISIALISASI HARDWARE =================
 void ActuatorSystem::begin() {
-    Serial.println(F("[ACTUATORS] Mengalokasikan LEDC Timer 0 (50Hz)..."));
-    // Alokasi timer LEDC 50Hz tunggal untuk ESP32-S3 (Timer 0 dipakai bersama 4 channel)
-    ESP32PWM::allocateTimer(0);
+    Serial.println(F("[ACTUATORS] Inisialisasi Native Hardware LEDC Servos (50Hz)..."));
 
-    _servoCarousel.setPeriodHertz(50);
-    _servoDropper.setPeriodHertz(50);
-    _servoBall.setPeriodHertz(50);
-    _servoBucket.setPeriodHertz(50);
+    // Kanal LEDC hardware mandiri: bebas cross-talk & independen register
+    _servoCarousel.attach(PIN_SERVO_FEATHER_CAROUSEL, 0); // Channel 0 -> Pin 15
+    _servoDropper.attach(PIN_SERVO_FEATHER_DROPPER,   1); // Channel 1 -> Pin 4
+    _servoBall.attach(PIN_SERVO_BALL_DISPENSER,       2); // Channel 2 -> Pin 5
+    _servoBucket.attach(PIN_SERVO_BUCKET_RELEASE,     3); // Channel 3 -> Pin 6
 
-    Serial.printf("[ACTUATORS] Attaching Pin S1=%d, S2=%d, S3=%d, S4=%d...\n",
+    Serial.printf("[ACTUATORS] Hardware PWM Channels Ready: S1(P%d,Ch0), S2(P%d,Ch1), S3(P%d,Ch2), S4(P%d,Ch3)\n",
                   PIN_SERVO_FEATHER_CAROUSEL, PIN_SERVO_FEATHER_DROPPER,
                   PIN_SERVO_BALL_DISPENSER, PIN_SERVO_BUCKET_RELEASE);
-
-    int ch1 = _servoCarousel.attach(PIN_SERVO_FEATHER_CAROUSEL, 500, 2400);
-    int ch2 = _servoDropper.attach(PIN_SERVO_FEATHER_DROPPER, 500, 2400);
-    int ch3 = _servoBall.attach(PIN_SERVO_BALL_DISPENSER, 500, 2400);
-    int ch4 = _servoBucket.attach(PIN_SERVO_BUCKET_RELEASE, 500, 2400);
-
-    Serial.printf("[ACTUATORS] Attached Channels: S1(P%d)=%d, S2(P%d)=%d, S3(P%d)=%d, S4(P%d)=%d\n",
-                  PIN_SERVO_FEATHER_CAROUSEL, ch1,
-                  PIN_SERVO_FEATHER_DROPPER, ch2,
-                  PIN_SERVO_BALL_DISPENSER, ch3,
-                  PIN_SERVO_BUCKET_RELEASE, ch4);
 
     // Posisi awal aman (Fail-safe hold)
     resetAll();
