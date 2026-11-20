@@ -31,12 +31,22 @@ void sendClientJson(AsyncWebSocketClient *client, const JsonDocument& doc);
 // ================= SETUP =================
 void setup() {
     Serial.begin(SERIAL_BAUD_RATE);
+    delay(300); // Waktu stabilisasi clock UART/USB setelah ROM bootloader
+
+    Serial.println();
+    Serial.println(F("================================================="));
+    Serial.println(F("[SYSTEM] ESP32-S3 Galileo Release Controller Aktif"));
+    Serial.println(F("[PINS] S1(Carousel)=15, S2(Dropper)=4, S3(Ball)=5, S4(Bucket)=6"));
+    Serial.println(F("================================================="));
+
     Serial.setTimeout(10); // Menghindari blocking UART jika ada fragmentasi serial byte
     pinMode(PIN_STATUS_LED, OUTPUT);
     digitalWrite(PIN_STATUS_LED, LOW);
 
     // Inisialisasi Subsistem Aktuator 4-Servo (Fail-safe initial hold)
+    Serial.println(F("[INIT] Memulai inisialisasi aktuator servo..."));
     actuators.begin();
+    Serial.println(F("[INIT] Aktuator servo siap."));
 
     // Koneksi Wi-Fi (Mode Station dengan fallback cepat ke Soft-AP agar USB UART langsung responsif)
     WiFi.mode(WIFI_STA);

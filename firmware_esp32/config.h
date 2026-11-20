@@ -2,10 +2,11 @@
 #define CONFIG_H
 
 // ================= PIN DEFINITIONS =================
-#define PIN_SERVO_FEATHER_CAROUSEL 4  // Servo 1: Stock Bulu Carousel Indexer (0 - 180 deg)
-#define PIN_SERVO_FEATHER_DROPPER  5  // Servo 2: Penjatuh Bulu Cepat ke Bucket (0 - 180 deg)
-#define PIN_SERVO_BALL_DISPENSER   6  // Servo 3: Stock Ball Dispenser (0 deg ambil, 90 deg jatuhkan)
-#define PIN_SERVO_BUCKET_RELEASE   7  // Servo 4: Release Bulu & Bola Simultan (0 deg tutup, 90 deg buka)
+// Konfigurasi pin bersih ESP32-S3 (Bebas USB-JTAG & Bebas Strapping)
+#define PIN_SERVO_FEATHER_CAROUSEL 15 // Servo 1: Stock Bulu Carousel Indexer (0 - 180 deg)
+#define PIN_SERVO_FEATHER_DROPPER   4 // Servo 2: Penjatuh Bulu Cepat ke Bucket (0 - 180 deg)
+#define PIN_SERVO_BALL_DISPENSER    5 // Servo 3: Stock Ball Dispenser (0 deg ambil, 90 deg jatuhkan)
+#define PIN_SERVO_BUCKET_RELEASE    6 // Servo 4: Release Bulu & Bola Simultan (0 deg tutup, 90 deg buka)
 #define PIN_STATUS_LED 2              // On-board LED indikator status
 
 // ================= PARAMETER KINEMATIKA & SUDUT =================
