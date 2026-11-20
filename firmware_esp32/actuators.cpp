@@ -123,15 +123,20 @@ void ActuatorSystem::resetAll() {
 void ActuatorSystem::resetCarousel() {
     _currentFeatherIndex = 0;
     _targetCarouselAngle = SERVO1_MIN_ANGLE;
+    _currentCarouselAngle = SERVO1_MIN_ANGLE;
+    _pendingCarouselAdvance = false;
+    _servoCarousel.write(SERVO1_MIN_ANGLE);
 }
 
 void ActuatorSystem::stepCarousel() {
     if (_currentFeatherIndex < 10) {
         _currentFeatherIndex++;
-        _targetCarouselAngle = _currentFeatherIndex * SERVO1_STEP_DEG;
-        if (_targetCarouselAngle > SERVO1_MAX_ANGLE) {
-            _targetCarouselAngle = SERVO1_MAX_ANGLE;
-        }
+    } else {
+        _currentFeatherIndex = 0; // Siklus penuh: kembali ke slot 1 jika sudah melewati slot 10
+    }
+    _targetCarouselAngle = _currentFeatherIndex * SERVO1_STEP_DEG;
+    if (_targetCarouselAngle > SERVO1_MAX_ANGLE) {
+        _targetCarouselAngle = SERVO1_MAX_ANGLE;
     }
 }
 

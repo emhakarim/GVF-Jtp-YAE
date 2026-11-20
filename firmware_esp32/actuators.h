@@ -106,6 +106,7 @@ public:
   // Getters status
   int getFeatherIndex() const { return _currentFeatherIndex; }
   int getCarouselAngle() const { return _currentCarouselAngle; }
+  int getTargetCarouselAngle() const { return _targetCarouselAngle; }
   bool isBucketOpen() const { return _bucketIsOpen; }
   bool isDropperResetDone(bool &wasPending);
   bool isBallResetDone(bool &wasPending);

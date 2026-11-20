@@ -175,7 +175,7 @@ void handleCommand(const String& jsonStr, AsyncWebSocketClient *client) {
 
         StaticJsonDocument<128> respDoc;
         respDoc["status"] = "CAROUSEL_RESET";
-        respDoc["target_slot"] = 1;
+        respDoc["feather_slot"] = 1;
         respDoc["target_angle"] = 0;
         broadcastJson(respDoc);
     }
@@ -186,7 +186,7 @@ void handleCommand(const String& jsonStr, AsyncWebSocketClient *client) {
         StaticJsonDocument<128> respDoc;
         respDoc["status"] = "CAROUSEL_STEP";
         respDoc["feather_slot"] = actuators.getFeatherIndex() + 1;
-        respDoc["target_angle"] = actuators.getCarouselAngle();
+        respDoc["target_angle"] = actuators.getTargetCarouselAngle();
         broadcastJson(respDoc);
     }
     // 7. Set Slot Spesifik Carousel
@@ -197,7 +197,7 @@ void handleCommand(const String& jsonStr, AsyncWebSocketClient *client) {
         StaticJsonDocument<128> respDoc;
         respDoc["status"] = "CAROUSEL_SET";
         respDoc["feather_slot"] = actuators.getFeatherIndex() + 1;
-        respDoc["target_angle"] = actuators.getCarouselAngle();
+        respDoc["target_angle"] = actuators.getTargetCarouselAngle();
         broadcastJson(respDoc);
     }
     // 8. Heartbeat PING
