@@ -38,6 +38,7 @@ public:
   void resetCarousel();
   void stepCarousel();
   void setCarouselIndex(int index);
+  void setDirectAngle(int servoNum, int angle);
 
   // Getters status
   int getFeatherIndex() const { return _currentFeatherIndex; }

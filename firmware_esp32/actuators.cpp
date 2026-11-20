@@ -138,3 +138,20 @@ void ActuatorSystem::setCarouselIndex(int index) {
     _currentFeatherIndex = index;
     _targetCarouselAngle = _currentFeatherIndex * SERVO1_STEP_DEG;
 }
+
+void ActuatorSystem::setDirectAngle(int servoNum, int angle) {
+    if (angle < 0) angle = 0;
+    if (angle > 180) angle = 180;
+    if (servoNum == 1) {
+        _currentCarouselAngle = angle;
+        _targetCarouselAngle = angle;
+        _servoCarousel.write(angle);
+    } else if (servoNum == 2) {
+        _servoDropper.write(angle);
+    } else if (servoNum == 3) {
+        _servoBall.write(angle);
+    } else if (servoNum == 4) {
+        _servoBucket.write(angle);
+    }
+    Serial.printf("[TEST-PIN] Servo S%d -> %d deg\n", servoNum, angle);
+}

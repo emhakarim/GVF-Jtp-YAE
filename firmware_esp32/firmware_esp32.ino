@@ -203,6 +203,27 @@ void handleCommand(const String& jsonStr, AsyncWebSocketClient *client) {
             String r; serializeJson(respDoc, r); Serial.println(r);
         }
     }
+    // 9. Uji Langsung Per Pin (Direct Diagnostic Pin Test)
+    else if (strcmp(cmd, "TEST_PIN") == 0) {
+        int pin = doc["pin"] | 0;
+        int sNum = doc["servo"] | 0;
+        int angle = doc["angle"] | 0;
+
+        if (pin == PIN_SERVO_FEATHER_CAROUSEL || sNum == 1) sNum = 1;
+        else if (pin == PIN_SERVO_FEATHER_DROPPER || sNum == 2) sNum = 2;
+        else if (pin == PIN_SERVO_BALL_DISPENSER || sNum == 3) sNum = 3;
+        else if (pin == PIN_SERVO_BUCKET_RELEASE || sNum == 4) sNum = 4;
+
+        if (sNum >= 1 && sNum <= 4) {
+            actuators.setDirectAngle(sNum, angle);
+        }
+
+        StaticJsonDocument<128> tDoc;
+        tDoc["status"] = "TEST_PIN_OK";
+        tDoc["servo"] = sNum;
+        tDoc["angle"] = angle;
+        broadcastJson(tDoc);
+    }
 }
 
 // ================= BROADCAST & TRANSMISI DATA =================
