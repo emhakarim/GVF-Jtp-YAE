@@ -61,6 +61,11 @@ class CommManager(QObject):
         try:
             self.disconnect_serial()
             self.serial_port = serial.Serial(port, baud_rate, timeout=0.1)
+            try:
+                self.serial_port.dtr = False
+                self.serial_port.rts = False
+            except Exception:
+                pass
             self.is_serial_connected = True
             
             # Start background reader thread
@@ -69,6 +74,9 @@ class CommManager(QObject):
             
             self.connection_status.emit("UART", True, f"Terhubung ke {port} @ {baud_rate}")
             self.log_message.emit(f"[UART] Berhasil terhubung ke {port}")
+            
+            # Kirim heartbeat PING awal untuk verifikasi handshake dua arah
+            threading.Timer(0.3, self.send_ping).start()
             return True
         except Exception as e:
             self.is_serial_connected = False
@@ -160,7 +168,9 @@ class CommManager(QObject):
         # Prioritaskan USB UART karena latensi sub-milidetik deterministik
         if self.is_serial_connected and self.serial_port and self.serial_port.is_open:
             try:
-                self.serial_port.write((payload_str + "\n").encode('utf-8'))
+                msg_bytes = (payload_str + "\n").encode('utf-8')
+                self.serial_port.write(msg_bytes)
+                self.serial_port.flush()
                 sent = True
             except Exception as e:
                 self.log_message.emit(f"[UART] Gagal kirim: {e}")
@@ -251,5 +261,6 @@ class CommManager(QObject):
                 detail = f" ({extra})" if extra is not None else ""
                 self.log_message.emit(f"[ESP32] Status: {status}{detail}")
         except json.JSONDecodeError:
-            # Mengabaikan pesan debug non-JSON dari Serial
-            pass
+            clean_txt = text.strip()
+            if clean_txt:
+                self.log_message.emit(f"[ESP32-LOG] {clean_txt}")

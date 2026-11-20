@@ -38,25 +38,23 @@ void setup() {
     // Inisialisasi Subsistem Aktuator 4-Servo (Fail-safe initial hold)
     actuators.begin();
 
-    // Koneksi Wi-Fi (Mode Station dengan fallback ke Soft-AP)
+    // Koneksi Wi-Fi (Mode Station dengan fallback cepat ke Soft-AP agar USB UART langsung responsif)
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.print(F("[WIFI] Menghubungkan ke Wi-Fi"));
+    Serial.println(F("[WIFI] Memulai Wi-Fi..."));
 
     unsigned long startAttemptTime = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 5000) {
-        delay(250);
-        Serial.print(F("."));
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 1200) {
+        delay(100);
         digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED));
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println(F("\n[WIFI] Terhubung!"));
-        Serial.print(F("[WIFI] IP ESP32: http://"));
+        Serial.print(F("[WIFI] Terhubung. IP ESP32: http://"));
         Serial.println(WiFi.localIP());
         digitalWrite(PIN_STATUS_LED, HIGH);
     } else {
-        Serial.println(F("\n[WIFI] Gagal terhubung ke Station. Mengaktifkan Access Point..."));
+        Serial.println(F("[WIFI] Station Standby. Mengaktifkan Access Point..."));
         WiFi.mode(WIFI_AP);
         WiFi.softAP(AP_SSID, AP_PASSWORD);
         Serial.print(F("[WIFI] AP Aktif. IP: http://"));
@@ -92,6 +90,8 @@ void loop() {
         String input = Serial.readStringUntil('\n');
         input.trim();
         if (input.length() > 0) {
+            Serial.print(F("[UART-RX] "));
+            Serial.println(input);
             handleCommand(input, nullptr);
         }
     }

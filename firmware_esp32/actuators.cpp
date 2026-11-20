@@ -25,10 +25,12 @@ void ActuatorSystem::begin() {
     _servoBall.setPeriodHertz(50);
     _servoBucket.setPeriodHertz(50);
 
-    _servoCarousel.attach(PIN_SERVO_FEATHER_CAROUSEL, 500, 2400);
-    _servoDropper.attach(PIN_SERVO_FEATHER_DROPPER, 500, 2400);
-    _servoBall.attach(PIN_SERVO_BALL_DISPENSER, 500, 2400);
-    _servoBucket.attach(PIN_SERVO_BUCKET_RELEASE, 500, 2400);
+    int ch1 = _servoCarousel.attach(PIN_SERVO_FEATHER_CAROUSEL, 500, 2400);
+    int ch2 = _servoDropper.attach(PIN_SERVO_FEATHER_DROPPER, 500, 2400);
+    int ch3 = _servoBall.attach(PIN_SERVO_BALL_DISPENSER, 500, 2400);
+    int ch4 = _servoBucket.attach(PIN_SERVO_BUCKET_RELEASE, 500, 2400);
+
+    Serial.printf("[ACTUATORS] Servo Attached Channels: S1=%d, S2=%d, S3=%d, S4=%d\n", ch1, ch2, ch3, ch4);
 
     // Posisi awal aman (Fail-safe hold)
     resetAll();
