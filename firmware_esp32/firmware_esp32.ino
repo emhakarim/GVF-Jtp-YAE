@@ -36,7 +36,7 @@ void setup() {
     Serial.println();
     Serial.println(F("================================================="));
     Serial.println(F("[SYSTEM] ESP32-S3 Galileo Release Controller Aktif"));
-    Serial.println(F("[PINS] S1(Carousel)=15, S2(Dropper)=4, S3(Ball)=5, S4(Bucket)=6"));
+    Serial.println(F("[PINS] S1(Carousel)=5, S2(Dropper)=4, S3(Ball)=6, S4(Bucket)=15"));
     Serial.println(F("================================================="));
 
     Serial.setTimeout(10); // Menghindari blocking UART jika ada fragmentasi serial byte

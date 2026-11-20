@@ -17,10 +17,10 @@ void ActuatorSystem::begin() {
     Serial.println(F("[ACTUATORS] Inisialisasi Native Hardware LEDC Servos (50Hz)..."));
 
     // Kanal LEDC hardware mandiri: bebas cross-talk & independen register
-    _servoCarousel.attach(PIN_SERVO_FEATHER_CAROUSEL, 0); // Channel 0 -> Pin 15
-    _servoDropper.attach(PIN_SERVO_FEATHER_DROPPER,   1); // Channel 1 -> Pin 4
-    _servoBall.attach(PIN_SERVO_BALL_DISPENSER,       2); // Channel 2 -> Pin 5
-    _servoBucket.attach(PIN_SERVO_BUCKET_RELEASE,     3); // Channel 3 -> Pin 6
+    _servoCarousel.attach(PIN_SERVO_FEATHER_CAROUSEL, 0); // Channel 0 -> Pin 5 (Carousel Bulu)
+    _servoDropper.attach(PIN_SERVO_FEATHER_DROPPER,   1); // Channel 1 -> Pin 4 (Penjatuh Bulu)
+    _servoBall.attach(PIN_SERVO_BALL_DISPENSER,       2); // Channel 2 -> Pin 6 (Bola Besi)
+    _servoBucket.attach(PIN_SERVO_BUCKET_RELEASE,     3); // Channel 3 -> Pin 15 (Bucket Simultan)
 
     Serial.printf("[ACTUATORS] Hardware PWM Channels Ready: S1(P%d,Ch0), S2(P%d,Ch1), S3(P%d,Ch2), S4(P%d,Ch3)\n",
                   PIN_SERVO_FEATHER_CAROUSEL, PIN_SERVO_FEATHER_DROPPER,
