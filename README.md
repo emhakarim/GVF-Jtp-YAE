@@ -56,13 +56,16 @@ python -m pip install -r requirements.txt
 
 ### Formula Kinematika & Propagasi Galat
 Untuk lintasan jatuh bebas vertikal di dalam tabung vakum setinggi $h = 2.0\text{ m}$:
+
 $$t_{\text{teori}} = \sqrt{\frac{2h}{g}} \approx \sqrt{\frac{4}{9.80665}} \approx 638.5\text{ ms}$$
+
 $$g = \frac{2h}{\Delta t^2}$$
 
 Ketidakpastian mutlak percepatan gravitasi ($\delta g$):
+
 $$\delta g = g \sqrt{\left(\frac{\delta h}{h}\right)^2 + \left(\frac{2 \delta t}{\Delta t}\right)^2}$$
 
-Pada frame rate **100 FPS**, resolusi waktu antar-frame kamera adalah $\Delta t = 10\text{ ms}$. ESP32 mencatat *timestamp* mikrosekon deterministik ($t_{\text{drop\_micros}}$) tepat saat pulsa pelepasan bucket dikirimkan.
+Pada frame rate **100 FPS**, resolusi waktu antar-frame kamera adalah $\Delta t = 10\text{ ms}$. ESP32 mencatat *timestamp* mikrosekon deterministik (`t_drop_micros`) tepat saat pulsa pelepasan bucket dikirimkan.
 
 ### Sekuens Kinematika Pemuatan Bulu (Anti-Jamming State Machine)
 Untuk mencegah benturan mekanik antara lengan pendorong (*feather dropper*) dengan sekat carousel bulu, firmware menerapkan *finite state machine* berurutan (*non-blocking*):
