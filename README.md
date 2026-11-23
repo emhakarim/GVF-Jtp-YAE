@@ -111,7 +111,7 @@ Sistem menggunakan board **ESP32-S3 Dev Module** (Dual Type-C: Port `COM` / UART
 
 | Servo | Peruntukan Fisis | GPIO ESP32-S3 | Kanal LEDC | Sudut Kerja / Kalibrasi |
 | :--- | :--- | :---: | :---: | :--- |
-| **Servo 1** | Carousel Stock Bulu (11 Slot) | `GPIO 5` | Channel 0 | $0^\circ \text{ s.d. } 180^\circ$ ($18^\circ$/slot, sapuan halus $25\text{ ms/deg}$) |
+| **Servo 1** | Carousel Stock Bulu (11 Slot) | `GPIO 5` | Channel 0 | $0^\circ \text{ s.d. } 180^\circ$ ($18^\circ$/slot, sapuan halus $65\text{ ms/deg}$) |
 | **Servo 2** | Penjatuh Bulu Cepat ke Bucket | `GPIO 4` | Channel 1 | $0^\circ \text{ (siaga)} \leftrightarrow 180^\circ \text{ (ketuk, hold } 750\text{ ms)}$ |
 | **Servo 3** | Pintu Stock Bola Besi (Dispenser) | `GPIO 6` | Channel 2 | $0^\circ \text{ (tutup)} \leftrightarrow 90^\circ \text{ (buka, hold } 750\text{ ms)}$ |
 | **Servo 4** | Bucket Release Simultan | `GPIO 15` | Channel 3 | **$5^\circ$ (Tutup rapat hening, bebas stall)** $\leftrightarrow 90^\circ$ (Buka lepas) |

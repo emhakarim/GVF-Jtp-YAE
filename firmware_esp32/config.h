@@ -16,7 +16,7 @@
 #define SERVO1_STEP_DEG                                                        \
   18 // Interval sudut per bulu (18 deg x 10 = 180 deg, total 11 slot)
 #define SERVO1_STEP_INTERVAL_MS                                                \
-  25 // Kecepatan sapuan: 25 ms/derajat (halus, bebas hentakan)
+  65 // Kecepatan sapuan: 65 ms/derajat (~1.17 detik per slot 18 deg, sangat halus, tenang & bebas getaran)
 
 // Servo 2: Penjatuh Bulu ke Bucket (Gerak Cepat)
 #define SERVO2_HOLD_ANGLE 0   // Posisi siaga (0 deg)
