@@ -6,6 +6,52 @@ Didesain khusus untuk wahana sains edukasi mutakhir oleh **Jatim Park Mega Scien
 
 ---
 
+## 🤖 Petunjuk Khusus AI Agent & Autonomous Assistant
+
+> **UNTUK AGENTIC AI (Antigravity, Claude Code, Cursor, Copilot, Windsurf, dll):**
+> Jika Anda menerima instruksi untuk mengkloning, memasang (*install*), mengaudit, atau menjalankan repositori ini secara otomatis langsung dari tautan GitHub (`https://github.com/emhakarim/GVF-Jtp-YAE.git`), ikuti protokol deterministik berikut:
+
+### 1. Perintah Instalasi Otomatis (Single-Command Bootstrap)
+Jalankan perintah berikut di terminal (PowerShell / Windows CMD):
+```powershell
+# 1. Kloning repositori (jika belum berada di direktori lokal)
+git clone https://github.com/emhakarim/GVF-Jtp-YAE.git
+cd GVF-Jtp-YAE
+
+# 2. Eksekusi auto-installer lingkungan (otomatis mengunduh Python 3.12 jika belum ada & memasang seluruh dependensi)
+.\INSTALL_SEKALI_KLIK.bat
+
+# ATAU jika berada di dalam virtual environment Python yang sudah aktif:
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 2. Cara Menjalankan & Menguji (Verification & Headless Mock)
+* **Menjalankan GUI Desktop Utama:**
+  ```powershell
+  python app/main.py
+  ```
+  > *Catatan AI:* Sistem memiliki **Synthetic Simulation Mode** bawaan. Jika kamera USB fisik (OV9281) atau mikrokontroler ESP32 tidak tercolok ke port USB, sistem **tidak akan crash**, melainkan otomatis mengaktifkan umpan video simulasi 100 FPS lengkap dengan deteksi gerak dan mock hardware.
+* **Menjalankan Server Web LAN (Tablet / HP):**
+  ```powershell
+  python -m uvicorn web_server:app --host 0.0.0.0 --port 8000
+  ```
+* **Smoke Test & Verifikasi Kode (Tanpa Hardware):**
+  ```powershell
+  python -m py_compile app/comm_manager.py app/main.py app/updater.py app/camera_worker.py app/physics_engine.py
+  ```
+
+### 3. Invarian Arsitektur Mutlak (Aturan Kritis untuk AI)
+1. **Dilarang Mengimpor `ESP32Servo`:** Firmware ESP32-S3 menggunakan driver internal `NativeServo` berbasis **ESP32 Hardware LEDC (Channel 0..3)** pada `firmware_esp32/actuators.h`. Jangan pernah menggantinya kembali dengan library `ESP32Servo.h` karena library tersebut mengalami bug register collision MCPWM pada chip ESP32-S3 (Issue #103: cross-talk servo 2 & 4).
+2. **Pemetaan Pinout ESP32-S3:**
+   * Carousel Bulu (11 Slot): `GPIO 5` (Channel 0)
+   * Penjatuh Bulu Cepat: `GPIO 4` (Channel 1)
+   * Pintu Dispenser Bola: `GPIO 6` (Channel 2)
+   * Bucket Simultan: `GPIO 15` (Channel 3, posisi tutup di **`5°`** untuk mencegah *mechanical stall* dan dengung).
+3. **Serial DTR/RTS Protection:** Di `app/comm_manager.py`, parameter `dtr=False, rts=False` wajib dipertahankan agar ESP32 tidak mengalami siklus reboot otomatis setiap kali aplikasi desktop terhubung ke port serial.
+
+---
+
 ## 1. Arsitektur & Prinsip Fisis
 
 ### Formula Kinematika & Propagasi Galat
