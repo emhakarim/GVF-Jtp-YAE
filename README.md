@@ -114,26 +114,91 @@ Komunikasi beroperasi dua arah secara deterministik via **USB Serial UART (11520
 
 ---
 
-## 5. Cara Menjalankan Sistem
+## 5. Panduan Instalasi & Setup Lengkap
 
-### Persiapan Dependensi Python
+### A. Prasyarat Perangkat Keras & Lunak (Prerequisites)
+1. **Sistem Operasi:** Windows 10 / Windows 11 (64-bit).
+2. **Koneksi Port Fisik:**
+   * 1x Port USB 3.0/2.0 untuk Kamera Kecepatan Tinggi OV9281 (100 FPS).
+   * 1x Port USB untuk Mikrokontroler ESP32-S3 (Gunakan port bertuliskan **`COM`** pada board, terhubung ke chip CH343 UART0).
+3. **Catu Daya Eksternal:** Adaptor / Switching PSU 5V DC (3A–5A) khusus servo. Ground (-) PSU wajib dihubungkan ke pin GND ESP32 (*Common Ground*).
+
+---
+
+### B. Metode 1: Instalasi Otomatis Sekali Klik (Rekomendasi PC Lab Baru)
+Jika Anda memasang sistem ini di PC laboratorium baru yang belum memiliki Python atau dependensi:
+1. Hubungkan PC ke jaringan internet.
+2. Klik kanan berkas [**`INSTALL_SEKALI_KLIK.bat`**](file:///d:/Antigravity%20AI/galileo-vacuum-fall/INSTALL_SEKALI_KLIK.bat) dan pilih **Run as administrator** (atau klik ganda langsung).
+3. Skrip otomatis akan:
+   * Mendeteksi dan mengunduh Python 3.12 (jika belum ada).
+   * Memasang Microsoft Visual C++ Redistributable x64.
+   * Menginstal seluruh pustaka Python (`PySide6`, `OpenCV`, `NumPy`, `pyserial`, `matplotlib`, `fastapi`, `uvicorn`).
+   * Memverifikasi integritas sistem dan membuat shortcut aplikasi di Desktop Windows.
+
+---
+
+### C. Metode 2: Instalasi Manual (Pengembang / Manual Environment)
+Bagi pengembang yang ingin menggunakan virtual environment:
 ```bash
+# 1. Masuk ke direktori proyek
 cd "d:\Antigravity AI\galileo-vacuum-fall"
+
+# 2. Buat dan aktifkan virtual environment (opsional namun disarankan)
+python -m venv venv
+venv\Scripts\activate
+
+# 3. Perbarui pip dan pasang pustaka
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Opsi A: Menjalankan Versi Desktop GUI (PySide6 - Rekomendasi Utama Lab)
-Klik ganda berkas [**`run_app.bat`**](file:///d:/Antigravity%20AI/galileo-vacuum-fall/run_app.bat) atau jalankan via terminal:
-```bash
-python app/main.py
-```
-*(Untuk menaruh shortcut di Desktop Windows, klik ganda [**`buat_shortcut_desktop.bat`**](file:///d:/Antigravity%20AI/galileo-vacuum-fall/buat_shortcut_desktop.bat)).*
+---
 
-### Opsi B: Menjalankan Versi Hybrid Web Dashboard (FastAPI + HTML5)
-Klik ganda berkas [**`run_web.bat`**](file:///d:/Antigravity%20AI/galileo-vacuum-fall/run_web.bat) atau jalankan:
-```bash
-python -m uvicorn web_server:app --host 0.0.0.0 --port 8000
-```
-Dashboard dapat dibuka di browser lokal `http://localhost:8000` atau dari tablet laboratorium melalui IP LAN PC pengontrol.
+### D. Panduan Flashing Firmware ke ESP32-S3
+1. Unduh dan buka **Arduino IDE 2.x**.
+2. Pastikan Board Package ESP32 telah terpasang:
+   * Buka **Tools > Board > Boards Manager...**
+   * Cari `esp32` oleh **Espressif Systems** dan pastikan terpasang (versi 2.0.17 atau 3.x).
+3. Buka berkas sketsa: `firmware_esp32/firmware_esp32.ino`.
+4. Hubungkan kabel USB dari PC ke **Port COM** pada board ESP32-S3 (port dengan chip USB-UART CH343).
+5. Atur menu **Tools** persis seperti konfigurasi berikut:
+   * **Board:** `ESP32S3 Dev Module`
+   * **Port:** Pilih nomor port COM yang terdeteksi (misal: `COM8`)
+   * **USB CDC On Boot:** `Disabled` *(Wajib Disabled agar serial output dialirkan ke port COM)*
+   * **Flash Mode:** `DIO 80MHz`
+   * **PSRAM:** `Disabled`
+   * **Upload Speed:** `921600`
+6. Klik tombol **Upload (`➔`)**.
+7. Buka Serial Monitor (115200 baud). Firmware akan menampilkan pesan booting diagnostik:
+   ```text
+   [SYSTEM] ESP32-S3 Galileo Release Controller Aktif
+   [PINS] S1(Carousel)=5, S2(Dropper)=4, S3(Ball)=6, S4(Bucket)=15
+   ```
 
-> **Catatan Mode Uji:** Jika kamera fisik berkecepatan tinggi OV9281 belum terhubung ke port USB, sistem secara otomatis beralih ke **Synthetic Simulation Mode (100 FPS)** lengkap dengan permodelan jatuh bebas tergenerasi, sehingga kalibrasi ROI, filter deteksi, dan kontrol aktuator dapat diuji secara mandiri tanpa kamera fisik.
+---
+
+### E. Menjalankan Aplikasi & Pengoperasian Harian
+
+#### Opsi 1: Desktop GUI PySide6 (Rekomendasi Utama Operasional)
+* Klik ganda ikon shortcut **Galileo Vacuum Fall** di Desktop Windows, atau
+* Klik ganda berkas [**`run_app.bat`**](file:///d:/Antigravity%20AI/galileo-vacuum-fall/run_app.bat), atau
+* Jalankan melalui terminal: `python app/main.py`
+
+#### Opsi 2: Hybrid Web Dashboard (Akses Tablet / HP via Wi-Fi LAN)
+* Klik ganda berkas [**`run_web.bat`**](file:///d:/Antigravity%20AI/galileo-vacuum-fall/run_web.bat)
+* Antarmuka web otomatis terbuka di `http://localhost:8000`.
+* Dari tablet penguji di laboratorium, buka browser dan masukkan alamat IP laptop lab (contoh: `http://192.168.1.15:8000`).
+
+---
+
+## 6. Panduan Pemecahan Masalah (Troubleshooting)
+
+1. **Port COM Tidak Terdeteksi di Device Manager:**
+   * Pastikan kabel USB dicolokkan ke port bertuliskan **`COM`** pada ESP32-S3, bukan port bertuliskan `USB`.
+   * Jika muncul tanda seru kuning, unduh dan pasang driver resmi chip USB-UART (CH343 / CH340 / CP210x).
+2. **Serial Monitor Membisu Setelah `entry 0x403c88b8`:**
+   * Periksa menu **Tools > USB CDC On Boot** di Arduino IDE. Pastikan posisinya **`Disabled`**.
+3. **Pintu Bucket Berdengung Saat Posisi Tutup:**
+   * Di `config.h`, sudut tutup telah dikalibrasi ke **`5°`** (`SERVO4_CLOSE_HOLD_ANGLE 5`). Jangan memaksa motor ke `0°` jika tuas pintu sudah mentok pada stopper mekanik agar motor tidak mengalami *mechanical stall*.
+4. **Kamera Tidak Muncul / Belum Terpasang:**
+   * Sistem secara otomatis mengaktifkan **Synthetic Simulation Mode** (animasi fisika tiruan 100 FPS) sehingga pengujian komputasi ROI, deteksi motion, dan tombol aktuator tetap dapat berjalan mandiri tanpa kamera fisik.
