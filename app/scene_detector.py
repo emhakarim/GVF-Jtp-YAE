@@ -20,9 +20,9 @@ class SceneDetector(QObject):
         self.buffer_size = buffer_size
         self.frame_buffer = deque(maxlen=buffer_size)
         
-        # Parameter ROI (Region of Interest) - Default area bawah (Full-width 100%, lower 84%)
+        # Parameter ROI (Region of Interest) - Fokus ke piringan dasar tabung (hindari glare dinding kaca atas)
         # Format: (x_start_ratio, y_start_ratio, width_ratio, height_ratio)
-        self.roi_normalized = (0.00, 0.16, 1.00, 0.84)
+        self.roi_normalized = (0.04, 0.48, 0.92, 0.50)
         
         # Ambang batas sensitivitas deteksi (persentase piksel berubah)
         self.motion_threshold = 0.4  # Default 0.4% (sensitif terhadap bola besi ~113 px)
@@ -44,7 +44,7 @@ class SceneDetector(QObject):
         
         # Tracking data event saat drop
         self.armed_timestamp = 0.0
-        self.dead_time_sec = 0.150  # Physical blanking window 150 ms pasca rilis bucket
+        self.dead_time_sec = 0.350  # Physical blanking window 350 ms (jatuh vakum 2m ~638.5 ms)
         self.drop_target_mode = "BOTH"  # FEATHER, BALL, BOTH
         self.recorded_events = []
         self.post_event_counter = 0
@@ -106,23 +106,27 @@ class SceneDetector(QObject):
         gray_roi = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
         gray_roi = cv2.GaussianBlur(gray_roi, (5, 5), 0)
 
+        # Normalisasi reflektansi lokal (R = I / L) untuk mengeliminasi flicker lampu AC 50/60Hz & rolling-shutter banding
+        illum = cv2.blur(gray_roi, (31, 31)).astype(np.float32) + 1.0
+        norm_roi = np.clip((gray_roi.astype(np.float32) / illum) * 128.0, 0, 255).astype(np.uint8)
+
         motion_percent = 0.0
         max_blob_area = 0.0
         detected_blob_box = None
         
-        if self.prev_gray_roi is not None and self.prev_gray_roi.shape == gray_roi.shape:
-            # 1. Delta Differencing antar-frame
-            delta_prev = cv2.absdiff(gray_roi, self.prev_gray_roi)
-            _, thresh_prev = cv2.threshold(delta_prev, 20, 255, cv2.THRESH_BINARY)
+        if self.prev_gray_roi is not None and self.prev_gray_roi.shape == norm_roi.shape:
+            # 1. Delta Differencing antar-frame pada domain reflektansi ternormalisasi
+            delta_prev = cv2.absdiff(norm_roi, self.prev_gray_roi)
+            _, thresh_prev = cv2.threshold(delta_prev, 18, 255, cv2.THRESH_BINARY)
             
             # Snapshot baseline background kosong HANYA saat memasuki mode ARMED
             if self.state == "ARMED" and self.ref_gray_roi is None:
-                self.ref_gray_roi = gray_roi.copy()
+                self.ref_gray_roi = norm_roi.copy()
 
             thresh_combined = thresh_prev
-            if self.state == "ARMED" and self.ref_gray_roi is not None and self.ref_gray_roi.shape == gray_roi.shape:
-                delta_ref = cv2.absdiff(gray_roi, self.ref_gray_roi)
-                _, thresh_ref = cv2.threshold(delta_ref, 25, 255, cv2.THRESH_BINARY)
+            if self.state == "ARMED" and self.ref_gray_roi is not None and self.ref_gray_roi.shape == norm_roi.shape:
+                delta_ref = cv2.absdiff(norm_roi, self.ref_gray_roi)
+                _, thresh_ref = cv2.threshold(delta_ref, 22, 255, cv2.THRESH_BINARY)
                 thresh_combined = cv2.bitwise_or(thresh_prev, thresh_ref)
 
             # Filter noise dengan morfologi (kernel 3x3)
@@ -187,7 +191,7 @@ class SceneDetector(QObject):
                         if self.arrival_callback:
                             self.arrival_callback(self.recorded_events[0])
 
-        self.prev_gray_roi = gray_roi
+        self.prev_gray_roi = norm_roi
         self.motion_level_updated.emit(motion_percent)
         if self.motion_callback:
             self.motion_callback(motion_percent)
