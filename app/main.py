@@ -26,12 +26,19 @@ class GalileoControllerApp:
         self.physics = PhysicsEngine(height_meters=2.0, delta_h_meters=0.002)
         self.detector = SceneDetector(buffer_size=150)
         self.comm = CommManager()
-        self.camera = CameraWorker(camera_index=0, target_fps=120, width=640, height=480, detector=self.detector)
+        self.camera = CameraWorker(camera_index=0, target_fps=120, width=640, height=480, detector=self.detector, start_sleeping=True)
         
         self.current_t_trigger = 0.0
         self.current_mode = "BOTH"
         self.replay_frames_cache = []
         self.is_inspecting_replay = False
+
+        # Timer Auto-Sleep Kamera (45 detik idle untuk mencegah overheat sensor & IC bridge)
+        self.CAMERA_IDLE_TIMEOUT_MS = 45000
+        self.camera_idle_timer = QTimer(self.window)
+        self.camera_idle_timer.setSingleShot(True)
+        self.camera_idle_timer.timeout.connect(self._on_camera_idle_timeout)
+        self._pending_drop_after_wake = False
 
         # Stopwatch Penghitung Waktu Real-time
         self.stopwatch_timer = QTimer(self.window)
@@ -53,6 +60,8 @@ class GalileoControllerApp:
         self.camera.display_frame_ready.connect(self._on_display_frame)
         self.camera.fps_updated.connect(self._on_fps_updated)
         self.camera.camera_status.connect(self._on_camera_status)
+        self.camera.power_state_changed.connect(self._on_camera_power_changed)
+        self.camera.camera_ready.connect(self._on_camera_ready)
 
         # 2. Scene Detector Signals
         self.detector.arrival_detected.connect(self._on_arrival_detected)
@@ -65,8 +74,9 @@ class GalileoControllerApp:
         self.comm.carousel_status.connect(self._on_carousel_status)
         self.comm.log_message.connect(self.window.append_log)
 
-        # 4. Camera Switch Actions
+        # 4. Camera Switch & Power Actions
         self.window.btn_refresh_cameras.clicked.connect(self._populate_cameras)
+        self.window.btn_toggle_camera.clicked.connect(self._toggle_camera_power)
         self.window.combo_cameras.currentIndexChanged.connect(self._apply_camera_selection)
 
         # 5. UI Button Actions
@@ -100,16 +110,59 @@ class GalileoControllerApp:
 
     def _populate_cameras(self):
         cams = CameraWorker.list_available_cameras()
+        self.window.combo_cameras.blockSignals(True)
         self.window.combo_cameras.clear()
         for cam_idx, label in cams:
             self.window.combo_cameras.addItem(label, userData=cam_idx)
+        self.window.combo_cameras.blockSignals(False)
+        if not self.camera.running and cams:
+            self.camera.camera_index = cams[0][0]
+            self.camera.is_mock = (cams[0][0] < 0)
         self.window.append_log(f"[CAMERA] Ditemukan {len(cams)} opsi input video.")
 
     def _apply_camera_selection(self):
         selected_idx = self.window.combo_cameras.currentData()
         if selected_idx is not None:
+            self.camera_idle_timer.start(self.CAMERA_IDLE_TIMEOUT_MS)
             self.camera.switch_camera(selected_idx)
             self.window.append_log(f"[CAMERA] Mengganti kamera ke index: {selected_idx}")
+
+    def _toggle_camera_power(self):
+        if self.camera.is_sleeping:
+            self._wake_camera_and_reset_timer("Tombol Manual")
+        else:
+            self.camera_idle_timer.stop()
+            self._pending_drop_after_wake = False
+            self.camera.put_to_sleep()
+
+    def _wake_camera_and_reset_timer(self, reason: str = ""):
+        self.camera_idle_timer.start(self.CAMERA_IDLE_TIMEOUT_MS)
+        if self.camera.is_sleeping:
+            self.window.btn_toggle_camera.setText("⏳ Menyalakan...")
+            self.camera.wake_up()
+            detail = f" ({reason})" if reason else ""
+            self.window.append_log(f"[CAMERA] Menyalakan kamera{detail}...")
+
+    @Slot(bool)
+    def _on_camera_power_changed(self, is_active: bool):
+        self.window.set_camera_power_ui(is_active)
+        if is_active:
+            self.camera_idle_timer.start(self.CAMERA_IDLE_TIMEOUT_MS)
+        else:
+            self.camera_idle_timer.stop()
+
+    @Slot()
+    def _on_camera_ready(self):
+        if self._pending_drop_after_wake:
+            self._pending_drop_after_wake = False
+            self._perform_bucket_drop_now()
+
+    def _on_camera_idle_timeout(self):
+        if self.stopwatch_timer.isActive():
+            self.camera_idle_timer.start(15000)
+            return
+        self.window.append_log("[CAMERA] Idle 45 detik — kamera masuk Mode Standby (Cooling).")
+        self.camera.put_to_sleep()
 
 
     def _populate_serial_ports(self):
@@ -155,6 +208,7 @@ class GalileoControllerApp:
 
     def _stage_feather(self):
         """Tahap 1A: Memuat bulu ke dalam bucket via Servo 2 dan memajukan carousel Servo 1."""
+        self._wake_camera_and_reset_timer("Muat Bulu")
         self.comm.trigger_drop_feather()
         self.window.lbl_status_feather.setText("Bulu: Siap di Bucket [OK]")
         self.window.lbl_status_feather.setStyleSheet("font-size: 10px; font-weight: 700; color: #16a34a;")
@@ -162,6 +216,7 @@ class GalileoControllerApp:
 
     def _stage_ball(self):
         """Tahap 1B: Memuat bola besi ke dalam bucket penampung via Servo 3."""
+        self._wake_camera_and_reset_timer("Muat Bola")
         self.comm.trigger_drop_ball()
         self.window.lbl_status_ball.setText("Bola: Siap di Bucket [OK]")
         self.window.lbl_status_ball.setStyleSheet("font-size: 10px; font-weight: 700; color: #16a34a;")
@@ -178,7 +233,19 @@ class GalileoControllerApp:
         self.window.lbl_carousel_stock.setText(f"Carousel Bulu: Slot {slot} / 10 ({angle}°)")
 
     def _execute_bucket_drop(self):
-        """Tahap 2: Buka bucket penampung via Servo 4 - Kedua objek jatuh bersamaan (Kamera & Stopwatch AKTIF)."""
+        """Tahap 2: Buka bucket penampung via Servo 4 - dengan Pre-roll aman jika kamera masih standby."""
+        if self.camera.is_sleeping:
+            self._pending_drop_after_wake = True
+            self.window.val_g.setText("WARMUP...")
+            self.window.val_v.setText("MENYALAKAN CAM")
+            self.window.val_dev.setText("---")
+            self._wake_camera_and_reset_timer("Pre-roll Drop Both")
+            return
+        self.camera_idle_timer.start(self.CAMERA_IDLE_TIMEOUT_MS)
+        self._perform_bucket_drop_now()
+
+    def _perform_bucket_drop_now(self):
+        """Eksekusi pembukaan bucket & aktifkan stopwatch + detektor 120 FPS."""
         self.is_inspecting_replay = False
         self.current_mode = "BOTH"
         self.current_t_trigger = time.perf_counter()
@@ -227,7 +294,8 @@ class GalileoControllerApp:
 
     @Slot(float)
     def _on_fps_updated(self, fps: float):
-        self.window.fps_badge.setText(f"● CAM: {fps:.1f} FPS")
+        if not self.camera.is_sleeping:
+            self.window.fps_badge.setText(f"● CAM: {fps:.1f} FPS")
 
     @Slot(bool, str)
     def _on_camera_status(self, is_hw: bool, msg: str):
@@ -282,6 +350,7 @@ class GalileoControllerApp:
         self.window.append_log(
             f"[RESULT] Deteksi Sukses: dt={dt*1000.0:.1f} ms | g={g_val:.3f} m/s² (dev: {deviation:+.2f}%)"
         )
+        self.camera_idle_timer.start(self.CAMERA_IDLE_TIMEOUT_MS)
 
     @Slot(list)
     def _on_replay_ready(self, frames_list: list):
@@ -317,6 +386,7 @@ class GalileoControllerApp:
             self.window.replay_slider.setValue(val + 1)
 
     def _resume_live_feed(self):
+        self._wake_camera_and_reset_timer("Live Feed")
         self.is_inspecting_replay = False
         self.window.replay_lbl.setText("Live Feed Aktif")
         self.window.lbl_frame_time.setText("LIVE")

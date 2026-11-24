@@ -430,6 +430,11 @@ class DashboardWindow(QMainWindow):
         self.btn_refresh_cameras = QPushButton("Scan")
         tb_l.addWidget(self.btn_refresh_cameras)
 
+        self.btn_toggle_camera = QPushButton("▶ Aktifkan Kamera")
+        self.btn_toggle_camera.setObjectName("btnToggleCamera")
+        self.btn_toggle_camera.setToolTip("Aktifkan atau matikan stream kamera (Mode Pendingin)")
+        tb_l.addWidget(self.btn_toggle_camera)
+
         d_tb = QFrame()
         d_tb.setFrameShape(QFrame.VLine)
         d_tb.setStyleSheet("color: #cbd5e1; max-height: 18px;")
@@ -459,6 +464,7 @@ class DashboardWindow(QMainWindow):
         tb_l.addWidget(self.btn_fullscreen)
 
         root_layout.addWidget(tb, 0)
+        self.set_camera_power_ui(False)
 
         # 3. SPLITTER AREA UTAMA (KIRI & KANAN)
         splitter = QSplitter(Qt.Horizontal)
@@ -728,6 +734,24 @@ class DashboardWindow(QMainWindow):
         self.video_label.setPixmap(pix.scaled(
             self.video_label.size(), Qt.KeepAspectRatio, Qt.FastTransformation
         ))
+
+    def set_camera_power_ui(self, is_active: bool):
+        """Memperbarui tampilan tombol toggle kamera & badge status termal."""
+        if is_active:
+            self.btn_toggle_camera.setText("⏹ Matikan Kamera")
+            self.btn_toggle_camera.setStyleSheet(
+                "background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; font-weight: 700; padding: 3px 10px;"
+            )
+            self.fps_badge.setStyleSheet("")
+        else:
+            self.btn_toggle_camera.setText("▶ Aktifkan Kamera")
+            self.btn_toggle_camera.setStyleSheet(
+                "background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; font-weight: 700; padding: 3px 10px;"
+            )
+            self.fps_badge.setText("● CAM: STANDBY")
+            self.fps_badge.setStyleSheet(
+                "background-color: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; font-weight: 800; font-size: 10px; padding: 4px 10px; border-radius: 14px; font-family: monospace;"
+            )
 
     def append_log(self, text: str):
         self.log_console.append(text)

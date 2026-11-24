@@ -16,6 +16,8 @@ class CameraWorker(QThread):
     display_frame_ready = Signal(np.ndarray)
     fps_updated = Signal(float)
     camera_status = Signal(bool, str)
+    camera_ready = Signal()
+    power_state_changed = Signal(bool)
 
     @staticmethod
     def list_available_cameras():
@@ -47,7 +49,7 @@ class CameraWorker(QThread):
         camera_list.append((-1, "Mode Simulasi Lab (Mock 120 FPS)"))
         return camera_list
 
-    def __init__(self, camera_index: int = 0, target_fps: int = 120, width: int = 640, height: int = 480, detector=None):
+    def __init__(self, camera_index: int = 0, target_fps: int = 120, width: int = 640, height: int = 480, detector=None, start_sleeping: bool = False):
         super().__init__()
         self.camera_index = camera_index
         self.target_fps = target_fps
@@ -62,10 +64,13 @@ class CameraWorker(QThread):
 
         self.running = False
         self.is_mock = (camera_index < 0)
+        self.is_sleeping = start_sleeping
         self.frame_count = 0
         self.cap = None
         self._switch_requested = False
         self._new_camera_index = camera_index
+        self._wake_requested = False
+        self._sleep_requested = False
         
         # Variabel simulasi jatuh sintetis (Mock Mode)
         self.sim_dropping = False
@@ -100,6 +105,32 @@ class CameraWorker(QThread):
     def set_detector(self, detector):
         self.detector = detector
 
+    def _release_camera(self):
+        """Melepas handle UVC kamera secara aman agar sensor & IC bridge masuk idle/cooling."""
+        if self.cap is not None:
+            try:
+                self.cap.release()
+                time.sleep(0.10)  # Berikan waktu bagi driver Windows unbind UVC
+            except Exception:
+                pass
+            self.cap = None
+
+    def wake_up(self):
+        """Mengaktifkan stream kamera dari mode standby/cooling secara asinkron."""
+        if not self.running:
+            self.is_sleeping = False
+        elif self.is_sleeping:
+            self._sleep_requested = False
+            self._wake_requested = True
+
+    def put_to_sleep(self):
+        """Menonaktifkan stream kamera ke mode standby/cooling secara asinkron."""
+        if not self.running:
+            self.is_sleeping = True
+        elif not self.is_sleeping:
+            self._wake_requested = False
+            self._sleep_requested = True
+
     def switch_camera(self, new_index: int):
         """Meminta pergantian kamera secara asinkron tanpa memblokir thread pemanggil."""
         if not self.running:
@@ -108,15 +139,12 @@ class CameraWorker(QThread):
         else:
             self._new_camera_index = new_index
             self._switch_requested = True
+            if self.is_sleeping:
+                self._sleep_requested = False
+                self._wake_requested = True
 
     def _open_camera(self, index: int):
-        if self.cap is not None:
-            try:
-                self.cap.release()
-                time.sleep(0.15)  # Berikan waktu bagi driver DirectShow Windows unbind
-            except Exception:
-                pass
-            self.cap = None
+        self._release_camera()
 
         if index < 0:
             self.is_mock = True
@@ -218,7 +246,13 @@ class CameraWorker(QThread):
 
     def run(self):
         self.running = True
-        self._open_camera(self.camera_index)
+        if self.is_sleeping:
+            self.power_state_changed.emit(False)
+            self.camera_status.emit(False, "Kamera Standby (Mode Pendingin Aktif). Klik 'Aktifkan Kamera' atau Muat Bulu/Bola.")
+        else:
+            self._open_camera(self.camera_index)
+            self.power_state_changed.emit(True)
+            self.camera_ready.emit()
 
         fps_timer = time.perf_counter()
         fps_frames = 0
@@ -226,10 +260,43 @@ class CameraWorker(QThread):
         last_display_emit_time = 0.0
 
         while self.running:
-            # Handle pergantian kamera jika diminta
+            # Handle permintaan masuk mode standby/cooling
+            if self._sleep_requested:
+                self._sleep_requested = False
+                if not self.is_sleeping:
+                    self._release_camera()
+                    self.is_sleeping = True
+                    self.power_state_changed.emit(False)
+                    self.camera_status.emit(False, "Kamera Standby (Mode Cooling Aktif - UVC Nonaktif).")
+
+            # Handle permintaan wake-up kamera
+            if self._wake_requested:
+                self._wake_requested = False
+                if self.is_sleeping:
+                    self.is_sleeping = False
+                if self._switch_requested:
+                    self._switch_requested = False
+                    self.camera_index = self._new_camera_index
+                self._open_camera(self.camera_index)
+                fps_timer = time.perf_counter()
+                fps_frames = 0
+                frame_interval = 1.0 / max(1, self.target_fps)
+                self.power_state_changed.emit(True)
+                self.camera_ready.emit()
+
+            # Handle pergantian kamera jika sudah dalam keadaan aktif
             if self._switch_requested:
                 self._switch_requested = False
                 self._open_camera(self._new_camera_index)
+                fps_timer = time.perf_counter()
+                fps_frames = 0
+                frame_interval = 1.0 / max(1, self.target_fps)
+                self.power_state_changed.emit(True)
+                self.camera_ready.emit()
+
+            if self.is_sleeping:
+                time.sleep(0.05)
+                continue
 
             loop_start = time.perf_counter()
             
@@ -275,11 +342,7 @@ class CameraWorker(QThread):
                 if sleep_sec > 0.001:
                     time.sleep(sleep_sec)
 
-        if self.cap is not None:
-            try:
-                self.cap.release()
-            except Exception:
-                pass
+        self._release_camera()
 
     def stop(self):
         self.running = False
