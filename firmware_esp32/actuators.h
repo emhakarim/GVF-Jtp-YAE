@@ -2,6 +2,7 @@
 #define ACTUATORS_H
 
 #include <Arduino.h>
+#include <Preferences.h>
 #include "config.h"
 
 #if defined(ESP_ARDUINO_VERSION_VAL)
@@ -87,6 +88,10 @@ private:
   bool _pendingReturnBall;
 
   bool _bucketIsOpen;
+
+  Preferences _prefs;
+  int _lastSavedCarouselAngle;
+  void _saveCarouselState();
 
 public:
   ActuatorSystem();

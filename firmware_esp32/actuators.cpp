@@ -12,11 +12,21 @@ ActuatorSystem::ActuatorSystem()
       _pendingReturnDropper(false),
       _pendingCarouselAdvance(false),
       _pendingReturnBall(false),
-      _bucketIsOpen(false) {}
+      _bucketIsOpen(false),
+      _lastSavedCarouselAngle(0) {}
 
 // ================= INISIALISASI HARDWARE =================
 void ActuatorSystem::begin() {
     Serial.println(F("[ACTUATORS] Inisialisasi Native Hardware LEDC Servos (50Hz)..."));
+
+    // Baca posisi carousel terakhir dari NVS agar boot bebas hentakan (Opsi A: tetap di posisi terakhir)
+    _prefs.begin("galileo", false);
+    int savedAngle = constrain(_prefs.getInt("c_angle", SERVO1_MIN_ANGLE), SERVO1_MIN_ANGLE, SERVO1_MAX_ANGLE);
+    int savedIdx = constrain(_prefs.getInt("c_idx", 0), 0, 10);
+    _currentCarouselAngle = savedAngle;
+    _targetCarouselAngle = savedAngle;
+    _currentFeatherIndex = savedIdx;
+    _lastSavedCarouselAngle = savedAngle;
 
     // Kanal LEDC hardware mandiri: bebas cross-talk & independen register
     _servoCarousel.attach(PIN_SERVO_FEATHER_CAROUSEL, 0); // Channel 0 -> Pin 5 (Carousel Bulu)
@@ -24,16 +34,17 @@ void ActuatorSystem::begin() {
     _servoBall.attach(PIN_SERVO_BALL_DISPENSER,       2); // Channel 2 -> Pin 6 (Bola Besi)
     _servoBucket.attach(PIN_SERVO_BUCKET_RELEASE,     3); // Channel 3 -> Pin 15 (Bucket Simultan)
 
+    // Langsung kunci Servo 1 ke sudut terakhir sebelum reset aktuator lain
+    _servoCarousel.write(_currentCarouselAngle);
+
     Serial.printf("[ACTUATORS] Hardware PWM Channels Ready: S1(P%d,Ch0), S2(P%d,Ch1), S3(P%d,Ch2), S4(P%d,Ch3)\n",
                   PIN_SERVO_FEATHER_CAROUSEL, PIN_SERVO_FEATHER_DROPPER,
                   PIN_SERVO_BALL_DISPENSER, PIN_SERVO_BUCKET_RELEASE);
+    Serial.printf("[ACTUATORS] NVS Restored Carousel: Slot #%d (%d deg)\n",
+                  _currentFeatherIndex + 1, _currentCarouselAngle);
 
-    // Posisi awal aman (Fail-safe hold)
+    // Posisi awal aman (Fail-safe hold) untuk Servo 2, 3, 4
     resetAll();
-    _currentCarouselAngle = SERVO1_MIN_ANGLE;
-    _targetCarouselAngle = SERVO1_MIN_ANGLE;
-    _currentFeatherIndex = 0;
-    _servoCarousel.write(_currentCarouselAngle);
 }
 
 // ================= STATE MACHINE & TIMER LOOP =================
@@ -48,6 +59,9 @@ void ActuatorSystem::update() {
             }
             _servoCarousel.write(_currentCarouselAngle);
             _lastCarouselStepTime = millis();
+            if (_currentCarouselAngle == _targetCarouselAngle) {
+                _saveCarouselState();
+            }
         }
     }
 
@@ -123,9 +137,10 @@ void ActuatorSystem::resetAll() {
 void ActuatorSystem::resetCarousel() {
     _currentFeatherIndex = 0;
     _targetCarouselAngle = SERVO1_MIN_ANGLE;
-    _currentCarouselAngle = SERVO1_MIN_ANGLE;
     _pendingCarouselAdvance = false;
-    _servoCarousel.write(SERVO1_MIN_ANGLE);
+    if (_currentCarouselAngle == _targetCarouselAngle) {
+        _saveCarouselState();
+    }
 }
 
 void ActuatorSystem::stepCarousel() {
@@ -154,6 +169,7 @@ void ActuatorSystem::setDirectAngle(int servoNum, int angle) {
         _currentCarouselAngle = angle;
         _targetCarouselAngle = angle;
         _servoCarousel.write(angle);
+        _saveCarouselState();
     } else if (servoNum == 2) {
         _servoDropper.write(angle);
     } else if (servoNum == 3) {
@@ -162,4 +178,14 @@ void ActuatorSystem::setDirectAngle(int servoNum, int angle) {
         _servoBucket.write(angle);
     }
     Serial.printf("[TEST-PIN] Servo S%d -> %d deg\n", servoNum, angle);
+}
+
+void ActuatorSystem::_saveCarouselState() {
+    if (_currentCarouselAngle != _lastSavedCarouselAngle || _prefs.getInt("c_idx", -1) != _currentFeatherIndex) {
+        _prefs.putInt("c_angle", _currentCarouselAngle);
+        _prefs.putInt("c_idx", _currentFeatherIndex);
+        _lastSavedCarouselAngle = _currentCarouselAngle;
+        Serial.printf("[NVS] Carousel state saved: Slot #%d (%d deg)\n",
+                      _currentFeatherIndex + 1, _currentCarouselAngle);
+    }
 }
