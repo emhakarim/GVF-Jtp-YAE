@@ -4,6 +4,9 @@ Mengintegrasikan UI Dashboard, Camera Worker (100 FPS), Scene Detector,
 Hardware Comm Manager (ESP32), dan Physics Engine.
 """
 
+import os
+os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+
 import sys
 import time
 import numpy as np

@@ -6,6 +6,9 @@ Arsitektur Zero-Bottleneck:
 - Canvas sintetis di-preallocate di memori (zero heap thrashing).
 """
 
+import os
+os.environ.setdefault("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS", "0")
+
 import time
 import numpy as np
 import cv2
@@ -155,6 +158,7 @@ class CameraWorker(QThread):
             return
 
         try:
+            t_open_start = time.perf_counter()
             negotiated = False
             test_frame = None
             mjpg_fourcc = cv2.VideoWriter_fourcc(*'MJPG')
@@ -163,6 +167,7 @@ class CameraWorker(QThread):
             self.cap = cv2.VideoCapture(index, cv2.CAP_MSMF)
             if self.cap and self.cap.isOpened():
                 self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                self.cap.set(cv2.CAP_PROP_FOURCC, mjpg_fourcc)
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
                 self.cap.set(cv2.CAP_PROP_FPS, 120)
@@ -171,7 +176,7 @@ class CameraWorker(QThread):
                 self.cap.set(cv2.CAP_PROP_EXPOSURE, -7)
                 self.cap.set(cv2.CAP_PROP_GAIN, 80)
 
-                for _ in range(4):
+                for _ in range(2):
                     ret, test_frame = self.cap.read()
                     if ret and test_frame is not None:
                         negotiated = True
@@ -232,7 +237,8 @@ class CameraWorker(QThread):
                 self.is_mock = False
                 self.camera_index = index
                 fps_info = f"{drv_fps:.0f}" if drv_fps > 0 else f"{self.target_fps}"
-                msg = f"Kamera Port {index} Aktif [{backend_name}] ({ch_w}x{ch_h} @ {fps_info} FPS | Exp: {drv_exp:.0f})"
+                wake_ms = (time.perf_counter() - t_open_start) * 1000.0
+                msg = f"Kamera Port {index} Aktif [{backend_name}] ({ch_w}x{ch_h} @ {fps_info} FPS | Exp: {drv_exp:.0f} | Wake: {wake_ms:.0f} ms)"
                 self.camera_status.emit(True, msg)
                 if self.status_callback: self.status_callback(True, msg)
             else:
