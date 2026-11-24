@@ -544,8 +544,8 @@ class DashboardWindow(QMainWindow):
         roi_box.addLayout(roi_top)
 
         self.slider_thresh = QSlider(Qt.Horizontal)
-        self.slider_thresh.setRange(1, 30) # 0.1% s/d 3.0%
-        self.slider_thresh.setValue(4)     # Default 0.4%
+        self.slider_thresh.setRange(1, 100) # 0.1% s/d 10.0%
+        self.slider_thresh.setValue(4)      # Default 0.4%
         roi_box.addWidget(self.slider_thresh)
 
         dock_layout.addLayout(roi_box, stretch=2)

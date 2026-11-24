@@ -156,9 +156,8 @@ class SceneDetector(QObject):
                 detected_blob_box = best_target["box"]
 
             # Evaluasi Trigger saat sistem berstatus ARMED:
-            # Trigger jika: terdeteksi target fisik valid (bola/bulu) ATAU persentase melampaui ambang batas tanpa gangguan makro
-            has_valid_target = (max_blob_area >= self.min_blob_area)
-            is_triggered = has_valid_target or (motion_percent >= self.motion_threshold and motion_percent <= 15.0)
+            # Threshold slider (0.1% - 10.0%) mengontrol batas pemicu secara ketat; batas atas 35% memfilter guncangan makro
+            is_triggered = (motion_percent >= self.motion_threshold and motion_percent <= 35.0)
             elapsed_since_arm = timestamp - self.armed_timestamp
 
             # Evaluasi Trigger dengan Physical Dead-Time Gate (150 ms) agar getaran rilis servo tidak memicu false trigger
